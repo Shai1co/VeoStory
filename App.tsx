@@ -5,15 +5,13 @@ import { extractVideoLastFrame } from './utils/canvas';
 import { initDB, saveSegment, loadSegments, clearHistory } from './utils/db';
 import { blobToBase64, base64ToBlob } from './utils/file';
 import { combineVideos } from './utils/video';
-import ApiKeySelector from './components/ApiKeySelector';
 import PromptInput from './components/PromptInput';
 import VideoPlayer from './components/VideoPlayer';
 import ChoiceOptions from './components/ChoiceOptions';
 import LoadingIndicator from './components/LoadingIndicator';
 
 export default function App() {
-  const [apiKeySelected, setApiKeySelected] = useState(false);
-  const [gameState, setGameState] = useState(GameState.SELECTING_API_KEY);
+  const [gameState, setGameState] = useState(GameState.START);
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
   const [currentSegmentId, setCurrentSegmentId] = useState<number | null>(null);
   const [choices, setChoices] = useState<string[]>([]);
@@ -47,20 +45,8 @@ export default function App() {
   }, []);
 
   const checkApiKeyAndLoadGame = useCallback(async () => {
-    try {
-      const hasKey = window.aistudio && await window.aistudio.hasSelectedApiKey();
-      if (hasKey) {
-        setApiKeySelected(true);
-        await loadGameFromDB();
-      } else {
-        setApiKeySelected(false);
-        setGameState(GameState.SELECTING_API_KEY);
-      }
-    } catch (e) {
-      console.error("aistudio not found or error checking key, assuming local dev.");
-      setApiKeySelected(true); // Assume key is set via env for local dev
-      await loadGameFromDB();
-    }
+    // Always assume API key is available via environment variable
+    await loadGameFromDB();
   }, [loadGameFromDB]);
 
 
@@ -105,9 +91,24 @@ export default function App() {
         );
         setGameState(GameState.ERROR);
     } else if (message.includes("Requested entity was not found") || message.includes("API key not found")) {
-      setErrorMessage("API Key is invalid or missing. Please select a valid key.");
-      setGameState(GameState.SELECTING_API_KEY);
-      setApiKeySelected(false);
+      setErrorMessage("API Key is invalid or missing. Please check your .env.local file.");
+      setGameState(GameState.ERROR);
+
+    } else if (message.includes("FFmpeg") || message.includes("window.FFmpeg")) {
+      setErrorMessage(
+        <>
+          Video export failed due to FFmpeg loading issues. This may be due to:
+          <ul className="mt-2 list-disc list-inside text-sm space-y-1">
+            <li>Network connectivity problems</li>
+            <li>Browser security restrictions</li>
+            <li>Ad blockers blocking the FFmpeg script</li>
+          </ul>
+          <div className="mt-4 text-sm">
+            Try refreshing the page or disabling ad blockers, then try again.
+          </div>
+        </>
+      );
+      setGameState(GameState.ERROR);
     } else {
       setErrorMessage(`Error: ${message}`);
       setGameState(GameState.ERROR);
@@ -373,7 +374,6 @@ export default function App() {
         </header>
 
         <main ref={mainContentRef} className="flex-grow flex flex-col items-center p-4 md:p-8 overflow-y-auto">
-            {gameState === GameState.SELECTING_API_KEY && <ApiKeySelector onKeySelected={checkApiKeyAndLoadGame} />}
 
             {gameState === GameState.START && (
                 <div className="flex flex-col items-center w-full">
