@@ -1,0 +1,5 @@
+{
+  "name": "Veo Visual Novel Game",
+  "description": "An interactive visual novel game powered by the Veo 3.1 API. Users start with a prompt to generate a video, then choose from AI-generated options to continue the story, with each choice generating a new video segment based on the last frame of the previous one.",
+  "requestFramePermissions": []
+}
