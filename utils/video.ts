@@ -77,9 +77,12 @@ const loadFFmpegInstance = (): Promise<any> => {
                 }
             };
 
-            const coreURL = "https://aistudiocdn.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js";
-            const wasmURL = "https://aistudiocdn.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm";
-            const workerURL = "https://aistudiocdn.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/worker.js";
+            // Align versions between @ffmpeg/ffmpeg and @ffmpeg/core to avoid incompatibilities
+            const coreVersion = '0.12.10';
+            const ffmpegVersion = '0.12.10';
+            const coreURL = `https://aistudiocdn.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.js`;
+            const wasmURL = `https://aistudiocdn.com/@ffmpeg/core@${coreVersion}/dist/umd/ffmpeg-core.wasm`;
+            const workerURL = `https://aistudiocdn.com/@ffmpeg/ffmpeg@${ffmpegVersion}/dist/umd/worker.js`;
 
             // Create local blob URLs for all required assets.
             const [blobCoreURL, blobWasmURL, blobWorkerURL] = await Promise.all([
@@ -122,13 +125,48 @@ export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
         await ffmpegInstance.writeFile(fileName, data);
     }
     
-    const concatFileContent = fileNames.map(name => `file '${name}'`).join('\n');
-    await ffmpegInstance.writeFile('concat.txt', concatFileContent);
+    const concatFileContent = fileNames.map((name) => `file '${name}'`).join('\n') + '\n';
+    // Ensure the concat list is written as bytes for compatibility across ffmpeg.wasm versions
+    await ffmpegInstance.writeFile('concat.txt', new TextEncoder().encode(concatFileContent));
 
     // Use exec to run the command. Arguments are passed as an array.
-    await ffmpegInstance.exec(['-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
-
-    const outputData = await ffmpegInstance.readFile('output.mp4');
+    // Add -y to force overwrite if a previous run left artifacts in the FS
+    let outputData: Uint8Array | null = null;
+    try {
+        await ffmpegInstance.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
+        outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
+        if (!outputData || outputData.length === 0) {
+            throw new Error('Empty output after stream copy concat');
+        }
+    } catch (primaryError) {
+        console.warn('[FFMPEG] Concat with -c copy failed, falling back to re-encode:', primaryError);
+        // Fallback: re-encode using concat filter, video-only
+        // Build inputs
+        const inputArgs = fileNames.flatMap((f) => ['-i', f]);
+        const streams = fileNames.map((_, idx) => `[${idx}:v:0]`).join('');
+        const filter = `${streams}concat=n=${fileNames.length}:v=1:a=0[v]`;
+        const args = [
+            '-y',
+            ...inputArgs,
+            '-filter_complex',
+            filter,
+            '-map',
+            '[v]',
+            // Choose a broadly supported output profile without requiring GPL encoders
+            '-c:v',
+            'mpeg4',
+            '-r',
+            '30',
+            '-pix_fmt',
+            'yuv420p',
+            'output.mp4',
+        ];
+        await ffmpegInstance.exec(args);
+        outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
+        if (!outputData || outputData.length === 0) {
+            throw new Error('Empty output after re-encode concat');
+        }
+    }
 
     // Clean up files from ffmpeg's virtual file system to prevent memory leaks
     for (const fileName of fileNames) {
@@ -137,5 +175,6 @@ export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
     await ffmpegInstance.deleteFile('concat.txt');
     await ffmpegInstance.deleteFile('output.mp4');
 
-    return new Blob([(outputData as Uint8Array).buffer], { type: 'video/mp4' });
+    // Create Blob directly from the Uint8Array to avoid ArrayBuffer offset issues
+    return new Blob([outputData], { type: 'video/mp4' });
 };

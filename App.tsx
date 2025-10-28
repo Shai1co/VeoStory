@@ -277,7 +277,8 @@ export default function App() {
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Delay revocation to avoid cancelling the download on some browsers
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         } catch (error) {
             handleError(error, "during video export");
