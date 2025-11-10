@@ -1,14 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, VideoSegment, StoredVideoSegment, SerializableSegment, ExportedStoryFile } from './types';
-import { generateInitialVideo, generateNextVideo, pollVideoOperation, generateChoices } from './services/geminiService';
+import { generateChoices } from './services/veoService';
+import { enhancePrompt } from './services/promptEnhancementService';
+import { generateVideo as generateVideoUnified, getProviderErrorMessage } from './services/videoGenerationService';
 import { extractVideoLastFrame } from './utils/canvas';
 import { initDB, saveSegment, loadSegments, clearHistory } from './utils/db';
 import { blobToBase64, base64ToBlob } from './utils/file';
 import { combineVideos } from './utils/video';
+import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts';
 import PromptInput from './components/PromptInput';
 import VideoPlayer from './components/VideoPlayer';
 import ChoiceOptions from './components/ChoiceOptions';
 import LoadingIndicator from './components/LoadingIndicator';
+import StoryTimeline from './components/StoryTimeline';
+import ConfirmationBanner from './components/ConfirmationBanner';
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
+import WelcomeTooltip from './components/WelcomeTooltip';
+import JumpToLatest from './components/JumpToLatest';
+import ModelSelector, { VeoModel } from './components/ModelSelector';
+import { StylePreset } from './config/stylePresets';
+import { buildPrompt } from './utils/prompt';
 
 export default function App() {
   const [gameState, setGameState] = useState(GameState.START);
@@ -18,8 +29,28 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<React.ReactNode | null>(null);
   const [loadingTitle, setLoadingTitle] = useState('');
   
+  // Background choice prefetching state
+  const [preloadedChoices, setPreloadedChoices] = useState<{ segmentId: number; choices: string[] } | null>(null);
+  const [isPrefetchingChoices, setIsPrefetchingChoices] = useState(false);
+  
+  // UI state
+  const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState<{message: string; action: () => void} | null>(null);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<VeoModel>(() => {
+    const saved = localStorage.getItem('veo-model-preference');
+    return (saved as VeoModel) || 'veo-3.1-fast-generate-preview';
+  });
+  
   const mainContentRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Save model preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('veo-model-preference', selectedModel);
+  }, [selectedModel]);
 
   const loadGameFromDB = useCallback(async () => {
     await initDB();
@@ -53,6 +84,12 @@ export default function App() {
   useEffect(() => {
     checkApiKeyAndLoadGame();
 
+    // Check if user has seen welcome tooltip
+    const hasSeenWelcome = localStorage.getItem('veo-visual-novel-welcome-seen');
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+    }
+
     return () => {
         // Cleanup blob URLs on unmount to prevent memory leaks
         videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
@@ -60,11 +97,106 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only on initial mount
 
+  // Scroll detection for "Jump to Latest" button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!mainContentRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = mainContentRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 500;
+      setShowJumpToLatest(!isNearBottom && videoSegments.length > 1);
+    };
+
+    const contentEl = mainContentRef.current;
+    if (contentEl) {
+      contentEl.addEventListener('scroll', handleScroll);
+      return () => contentEl.removeEventListener('scroll', handleScroll);
+    }
+  }, [videoSegments.length]);
+
   const scrollToBottom = () => {
     if (mainContentRef.current) {
         mainContentRef.current.scrollTop = mainContentRef.current.scrollHeight;
     }
   };
+
+  const jumpToSegment = useCallback((segmentId: number) => {
+    const segment = videoSegments.find(s => s.id === segmentId);
+    if (segment) {
+      const index = videoSegments.indexOf(segment);
+      const isLastSegment = index === videoSegments.length - 1;
+      setCurrentSegmentId(segmentId);
+      setGameState(isLastSegment && !segment.selectedChoice && segment.choices ? GameState.CHOICES : GameState.REPLAY);
+    }
+  }, [videoSegments]);
+
+  const navigateSegments = useCallback((direction: 'up' | 'down') => {
+    const currentIndex = videoSegments.findIndex(s => s.id === currentSegmentId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex >= 0 && newIndex < videoSegments.length) {
+      jumpToSegment(videoSegments[newIndex].id);
+    }
+  }, [videoSegments, currentSegmentId, jumpToSegment]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 's',
+      description: 'Toggle story timeline',
+      action: () => setIsTimelineSidebarOpen(prev => !prev),
+    },
+    {
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      action: () => setShowKeyboardHelp(true),
+    },
+    {
+      key: 'Escape',
+      description: 'Close dialogs',
+      action: () => {
+        setShowKeyboardHelp(false);
+        setShowConfirmation(null);
+      },
+    },
+    {
+      key: 'ArrowUp',
+      description: 'Previous segment',
+      action: () => navigateSegments('up'),
+    },
+    {
+      key: 'ArrowDown',
+      description: 'Next segment',
+      action: () => navigateSegments('down'),
+    },
+    {
+      key: '1',
+      description: 'Select first choice',
+      action: () => {
+        if (gameState === GameState.CHOICES && choices.length >= 1) {
+          handleChoiceSelected(choices[0]);
+        }
+      },
+    },
+    {
+      key: '2',
+      description: 'Select second choice',
+      action: () => {
+        if (gameState === GameState.CHOICES && choices.length >= 2) {
+          handleChoiceSelected(choices[1]);
+        }
+      },
+    },
+    {
+      key: '3',
+      description: 'Select third choice',
+      action: () => {
+        if (gameState === GameState.CHOICES && choices.length >= 3) {
+          handleChoiceSelected(choices[2]);
+        }
+      },
+    },
+  ], !showConfirmation && !showKeyboardHelp && !showWelcome);
 
   const handleError = (error: any, context: string) => {
     console.error(context, error);
@@ -115,36 +247,47 @@ export default function App() {
     }
   };
 
-  const startNewGame = async (prompt: string) => {
-    // Set loading state immediately to show indicator and prevent more clicks
-    setGameState(GameState.GENERATING_VIDEO);
-    setLoadingTitle('Crafting Your First Scene...');
+  const startNewGame = async (prompt: string, stylePreset: StylePreset | null) => {
+    try {
+      // Set loading state immediately to show indicator and prevent more clicks
+      setGameState(GameState.GENERATING_VIDEO);
+      setLoadingTitle('Enhancing Your Prompt...');
 
-    // Clear any previous game state
-    await clearHistory();
-    videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
-    setVideoSegments([]);
-    setChoices([]);
-    setCurrentSegmentId(null);
-    setErrorMessage(null);
-    
-    // Start generating the first video
-    generateVideo(prompt);
+      // Clear any previous game state
+      await clearHistory();
+      videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
+      setVideoSegments([]);
+      setChoices([]);
+      setCurrentSegmentId(null);
+      setErrorMessage(null);
+      setPreloadedChoices(null);
+      setIsPrefetchingChoices(false);
+      
+      // Build prompt with style preset
+      const styledPrompt = buildPrompt(prompt, stylePreset);
+      
+      // Enhance the prompt to make it more game-like and adventurous
+      const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true });
+      
+      setLoadingTitle('Crafting Your First Scene...');
+      
+      // Start generating the first video with enhanced prompt
+      generateVideo(enhancedPrompt);
+    } catch (error) {
+      handleError(error, 'during prompt enhancement');
+    }
   };
   
   const generateVideo = useCallback(async (prompt: string, lastFrame?: string) => {
     try {
-      const initialOperation = lastFrame
-        ? await generateNextVideo(prompt, lastFrame)
-        : await generateInitialVideo(prompt);
-      
-      const finalOperation = await pollVideoOperation(initialOperation);
-      const videoUri = finalOperation.response?.generatedVideos?.[0]?.video?.uri;
+      // Use the unified video generation service
+      const response = await generateVideoUnified({
+        prompt,
+        model: selectedModel,
+        imageData: lastFrame
+      });
 
-      if (!videoUri) throw new Error('Video generation failed to return a valid URI.');
-      
-      const response = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
-      const videoBlob = await response.blob();
+      const { videoBlob } = response;
       
       const newSegmentData: StoredVideoSegment = {
           id: Date.now(), prompt, videoBlob, lastFrameDataUrl: null
@@ -159,9 +302,47 @@ export default function App() {
       setGameState(GameState.PLAYING);
       setTimeout(scrollToBottom, 100);
     } catch (error) {
-      handleError(error, 'during video generation');
+      // Use provider-specific error messages
+      const errorMessage = error instanceof Error 
+        ? getProviderErrorMessage(selectedModel, error)
+        : 'An unknown error occurred during video generation.';
+      
+      setErrorMessage(errorMessage);
+      setGameState(GameState.ERROR);
+      console.error('Video generation error:', error);
     }
-  }, []);
+  }, [selectedModel]);
+
+  // Background prefetch choices when video is near end (80% complete)
+  const handleVideoProgress = useCallback(async (currentTime: number, duration: number) => {
+    const lastSegment = videoSegments[videoSegments.length - 1];
+    if (!lastSegment || lastSegment.id !== currentSegmentId) return;
+    
+    // If choices already exist or we're already prefetching, skip
+    if (lastSegment.choices || isPrefetchingChoices || preloadedChoices) return;
+    
+    const PREFETCH_THRESHOLD = 0.8; // Start prefetching at 80% through video
+    const progress = currentTime / duration;
+    
+    if (progress >= PREFETCH_THRESHOLD && !isNaN(progress)) {
+      console.log('🔄 Background prefetching choices at', Math.round(progress * 100) + '%');
+      setIsPrefetchingChoices(true);
+      
+      try {
+        const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
+        const newChoices = await generateChoices(storyContext);
+        
+        // Store preloaded choices
+        setPreloadedChoices({ segmentId: lastSegment.id, choices: newChoices });
+        console.log('✅ Choices preloaded successfully!');
+      } catch (error) {
+        console.error('❌ Failed to prefetch choices:', error);
+        // Don't show error to user - will fall back to normal loading
+      } finally {
+        setIsPrefetchingChoices(false);
+      }
+    }
+  }, [videoSegments, currentSegmentId, isPrefetchingChoices, preloadedChoices]);
 
   const handleVideoEnd = useCallback(async (videoElement: HTMLVideoElement) => {
     const lastSegment = videoSegments[videoSegments.length - 1];
@@ -173,12 +354,23 @@ export default function App() {
     }
 
     try {
-      setGameState(GameState.GENERATING_CHOICES);
-      setLoadingTitle("Imagining What's Next...");
-
       const lastFrameDataUrl = await extractVideoLastFrame(videoElement);
-      const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
-      const newChoices = await generateChoices(storyContext);
+      let newChoices: string[];
+      
+      // Check if we have preloaded choices ready
+      if (preloadedChoices && preloadedChoices.segmentId === lastSegment.id) {
+        console.log('⚡ Using preloaded choices - instant display!');
+        newChoices = preloadedChoices.choices;
+        // No loading state needed - instant!
+      } else {
+        // Fallback: Generate choices now (with loading indicator)
+        console.log('⏳ Choices not ready, generating now...');
+        setGameState(GameState.GENERATING_CHOICES);
+        setLoadingTitle("Imagining What's Next...");
+        
+        const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
+        newChoices = await generateChoices(storyContext);
+      }
       
       const blob = await(await fetch(lastSegment.videoUrl)).blob();
       const segmentToUpdate: StoredVideoSegment = { ...lastSegment, videoBlob: blob, lastFrameDataUrl, choices: newChoices };
@@ -187,24 +379,43 @@ export default function App() {
       setVideoSegments(prev => prev.map(seg => seg.id === lastSegment.id ? { ...seg, lastFrameDataUrl, choices: newChoices } : seg ));
       setChoices(newChoices);
       setGameState(GameState.CHOICES);
+      
+      // Clear preloaded choices after use
+      setPreloadedChoices(null);
     } catch (error) {
       handleError(error, 'during video end processing');
     }
-  }, [videoSegments, currentSegmentId]);
+  }, [videoSegments, currentSegmentId, preloadedChoices]);
 
   const handleChoiceSelected = async (choice: string) => {
     const lastSegment = videoSegments[videoSegments.length - 1];
     if (lastSegment && lastSegment.lastFrameDataUrl) {
-      setChoices([]);
-      
-      const blob = await(await fetch(lastSegment.videoUrl)).blob();
-      const segmentToUpdate: StoredVideoSegment = { ...lastSegment, videoBlob: blob, selectedChoice: choice };
-      await saveSegment(segmentToUpdate);
-      setVideoSegments(prev => prev.map(s => s.id === lastSegment.id ? {...s, selectedChoice: choice} : s));
+      try {
+        setChoices([]);
+        // Clear prefetch state for next video
+        setPreloadedChoices(null);
+        setIsPrefetchingChoices(false);
+        
+        const blob = await(await fetch(lastSegment.videoUrl)).blob();
+        const segmentToUpdate: StoredVideoSegment = { ...lastSegment, videoBlob: blob, selectedChoice: choice };
+        await saveSegment(segmentToUpdate);
+        setVideoSegments(prev => prev.map(s => s.id === lastSegment.id ? {...s, selectedChoice: choice} : s));
 
-      setGameState(GameState.GENERATING_VIDEO);
-      setLoadingTitle('Bringing Your Choice to Life...');
-      generateVideo(choice, lastSegment.lastFrameDataUrl);
+        setGameState(GameState.GENERATING_VIDEO);
+        setLoadingTitle('Enhancing Your Choice...');
+        
+        // Enhance the choice to make it more game-like and adventurous
+        const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
+        const enhancedChoice = await enhancePrompt(choice, { 
+          isInitial: false, 
+          previousContext: storyContext 
+        });
+        
+        setLoadingTitle('Bringing Your Choice to Life...');
+        generateVideo(enhancedChoice, lastSegment.lastFrameDataUrl);
+      } catch (error) {
+        handleError(error, 'during choice selection');
+      }
     } else {
       handleError(new Error("Could not find the last frame to continue the story."), 'on choice selection');
     }
@@ -213,7 +424,10 @@ export default function App() {
   const handleExportStory = async () => {
     const segmentsToExport = await loadSegments();
     if (segmentsToExport.length === 0) {
-      alert("There is no story to export.");
+      setShowConfirmation({
+        message: "There is no story to export.",
+        action: () => setShowConfirmation(null)
+      });
       return;
     }
     
@@ -260,7 +474,10 @@ export default function App() {
     const handleExportVideo = async () => {
         const segmentsToExport = await loadSegments();
         if (segmentsToExport.length < 2) {
-            alert("You need at least two video segments to create a movie.");
+            setShowConfirmation({
+                message: "You need at least two video segments to create a movie.",
+                action: () => setShowConfirmation(null)
+            });
             return;
         }
 
@@ -330,18 +547,25 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const resetGame = async () => {
-    await clearHistory();
-    videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
-    setVideoSegments([]);
-    setChoices([]);
-    setCurrentSegmentId(null);
-    setErrorMessage(null);
-    checkApiKeyAndLoadGame();
+  const resetGame = () => {
+    setShowConfirmation({
+      message: "Are you sure you want to start over? This will delete your current story.",
+      action: async () => {
+        setShowConfirmation(null);
+        await clearHistory();
+        videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
+        setVideoSegments([]);
+        setChoices([]);
+        setCurrentSegmentId(null);
+        setErrorMessage(null);
+        checkApiKeyAndLoadGame();
+      }
+    });
   };
 
   return (
     <div className="bg-gray-900 text-gray-200 min-h-screen flex flex-col font-sans">
+        {/* Loading Indicator */}
         {(
           gameState === GameState.GENERATING_VIDEO || 
           gameState === GameState.GENERATING_CHOICES ||
@@ -350,11 +574,69 @@ export default function App() {
           gameState === GameState.EXPORTING_VIDEO
         ) && <LoadingIndicator title={loadingTitle} />}
         
+        {/* Story Timeline Sidebar */}
+        <StoryTimeline
+          segments={videoSegments}
+          currentSegmentId={currentSegmentId}
+          onSegmentClick={jumpToSegment}
+          isOpen={isTimelineSidebarOpen}
+          onToggle={() => setIsTimelineSidebarOpen(!isTimelineSidebarOpen)}
+        />
+
+        {/* Confirmation Banner */}
+        {showConfirmation && (
+          <ConfirmationBanner
+            message={showConfirmation.message}
+            onConfirm={showConfirmation.action}
+            onCancel={() => setShowConfirmation(null)}
+            type="warning"
+          />
+        )}
+
+        {/* Keyboard Shortcuts Help */}
+        <KeyboardShortcutsHelp
+          isOpen={showKeyboardHelp}
+          onClose={() => setShowKeyboardHelp(false)}
+        />
+
+        {/* Welcome Tooltip */}
+        {showWelcome && (
+          <WelcomeTooltip
+            onDismiss={() => {
+              setShowWelcome(false);
+              localStorage.setItem('veo-visual-novel-welcome-seen', 'true');
+            }}
+          />
+        )}
+
+        {/* Jump to Latest Button */}
+        <JumpToLatest
+          isVisible={showJumpToLatest}
+          onClick={scrollToBottom}
+        />
+        
         <header className="w-full p-4 flex justify-between items-center bg-gray-900/80 backdrop-blur-sm border-b border-slate-800 sticky top-0 z-10">
-            <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">
-                Veo Visual Novel
-            </h1>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">
+                  Veo Visual Novel
+              </h1>
+              {/* Model indicator badge */}
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-slate-800 border border-slate-600 rounded-full text-slate-300">
+                {selectedModel.includes('fast') ? '⚡' : '✨'}
+                {selectedModel.includes('fast') ? 'Fast' : 'Standard'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 md:gap-4">
+              {/* Keyboard Shortcuts Help Button */}
+              <button
+                onClick={() => setShowKeyboardHelp(true)}
+                className="p-2 text-slate-400 hover:text-sky-400 transition-colors"
+                title="Keyboard Shortcuts (?)"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
               {videoSegments.length > 1 && (
                   <button onClick={handleExportVideo} className="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-500 transition-colors">
                       Export Video
@@ -378,6 +660,15 @@ export default function App() {
             {gameState === GameState.START && (
                 <div className="flex flex-col items-center w-full">
                   <PromptInput onSubmit={startNewGame} disabled={false} />
+                  
+                  <div className="w-full max-w-3xl mx-auto mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <ModelSelector
+                      selectedModel={selectedModel}
+                      onModelChange={setSelectedModel}
+                      disabled={false}
+                    />
+                  </div>
+
                   <div className="text-center mt-8 border-t border-slate-700 w-full max-w-3xl pt-8">
                       <p className="text-slate-400 mb-4">Or, continue a previous adventure:</p>
                       <label htmlFor="import-story-input" className="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-400 transition-colors duration-300 cursor-pointer shadow-md">
@@ -410,7 +701,9 @@ export default function App() {
                             <VideoPlayer 
                                 videoSegment={segment}
                                 onVideoEnd={handleVideoEnd}
+                                onProgress={isLastSegment ? handleVideoProgress : undefined}
                                 isCurrent={isCurrentPlayer}
+                                segmentIndex={index}
                                 onClick={() => {
                                     setCurrentSegmentId(segment.id);
                                     setGameState(isLastSegment && !segment.selectedChoice && segment.choices ? GameState.CHOICES : GameState.REPLAY);

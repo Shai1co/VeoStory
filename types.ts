@@ -33,6 +33,39 @@ export interface ExportedStoryFile {
     segments: SerializableSegment[];
 }
 
+// Video generation model types
+export type VideoModel = 
+  | 'veo-3.1-fast-generate-preview'
+  | 'veo-3.1-generate-preview'
+  | 'runway-gen-3-alpha'
+  | 'runway-gen-4-turbo'
+  | 'stable-video-diffusion-img2vid'
+  | 'replicate-svd'
+  | 'replicate-animatediff'
+  | 'replicate-hotshot'
+  | 'replicate-hailuo-02'
+  | 'replicate-seedance-lite'
+  | 'replicate-seedance-pro-fast'
+  | 'replicate-seedance-pro';
+
+// Provider categories
+export type VideoProvider = 'veo' | 'runway' | 'stable-diffusion' | 'replicate';
+
+// Model metadata for UI display and configuration
+export interface VideoModelMetadata {
+  id: VideoModel;
+  provider: VideoProvider;
+  name: string;
+  description: string;
+  icon: string;
+  speed: string;
+  quality: string;
+  costLevel: number; // 1-3, 1 = cheapest
+  features: string[];
+  limitations?: string[];
+  requiresApiKey?: string; // Environment variable name for API key
+}
+
 export enum GameState {
   START = 'START',
   SELECTING_API_KEY = 'SELECTING_API_KEY',
