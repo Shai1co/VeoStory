@@ -13,14 +13,18 @@ interface SegmentDisplayProps {
   onVideoEnd: (videoElement: HTMLVideoElement) => void;
   onVideoProgress?: (currentTime: number, duration: number) => void;
   onChoiceSelect: (choice: string) => void;
-  onRegenerateChoices: () => void;
+  onRegenerateChoices?: () => void;
   canRegenerateChoices: boolean;
   isRegeneratingChoices: boolean;
   regenerationError?: string | null;
   isChoiceLoading?: boolean;
   choiceLoadingTitle?: string;
-  isCustomPromptOpen: boolean;
-  onCustomPromptToggle: () => void;
+  isCustomPromptOpen?: boolean;
+  onCustomPromptToggle?: () => void;
+  customPromptValue?: string;
+  onCustomPromptChange?: (value: string) => void;
+  onCustomPromptSubmit?: () => void;
+  isCustomPromptSubmitting?: boolean;
 }
 
 const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
@@ -39,8 +43,12 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
   regenerationError = null,
   isChoiceLoading = false,
   choiceLoadingTitle = '',
-  isCustomPromptOpen,
+  isCustomPromptOpen = false,
   onCustomPromptToggle,
+  customPromptValue = '',
+  onCustomPromptChange,
+  onCustomPromptSubmit,
+  isCustomPromptSubmitting = false,
 }) => {
   const promptLabel = index === 0 ? 'You began with:' : 'Then you chose:';
   const shouldShowOverlay = isCurrent && (segment.choices || isChoiceLoading);
@@ -87,6 +95,10 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
                   errorMessage={regenerationError}
                   onCustomPromptToggle={onCustomPromptToggle}
                   isCustomPromptOpen={isCustomPromptOpen}
+                  customPromptValue={customPromptValue}
+                  onCustomPromptChange={onCustomPromptChange}
+                  onCustomPromptSubmit={onCustomPromptSubmit}
+                  isCustomPromptSubmitting={isCustomPromptSubmitting}
                 />
               )
             )}

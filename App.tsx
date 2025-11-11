@@ -16,7 +16,7 @@ import { VideoGenerationResponse, getProviderErrorMessage } from './services/vid
 import { extractVideoLastFrame } from './utils/canvas';
 import { initDB, saveSegment, loadSegments, clearHistory } from './utils/db';
 import { blobToBase64, base64ToBlob } from './utils/file';
-import { combineVideos } from './utils/video';
+import { combineVideos, combineVideosWithChoiceOverlays } from './utils/video';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts';
 import PromptInput from './components/PromptInput';
 import SegmentDisplay from './components/SegmentDisplay';
@@ -29,14 +29,17 @@ import JumpToLatest from './components/JumpToLatest';
 import ModelSelector from './components/ModelSelector';
 import StoryModelControls from './components/StoryModelControls';
 import GenerationStatusBanner from './components/GenerationStatusBanner';
+import ExportOptionsDialog from './components/ExportOptionsDialog';
 import { StylePreset } from './config/stylePresets';
 import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
+import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
 
 const SCROLL_TO_BOTTOM_DELAY_MS = 100;
 const CHOICE_REGEN_LOADING_TITLE = 'Discovering Alternate Paths...';
 const CHOICE_REGENERATION_FAILURE_MESSAGE = 'Could not find fresh choices. Please try again.';
 const CHOICE_REGENERATION_MISSING_FRAME_MESSAGE = 'Unable to regenerate choices because the reference frame is unavailable.';
+const CUSTOM_PROMPT_EMPTY_MESSAGE = 'Please enter a prompt before continuing.';
 
 export default function App() {
   const [gameState, setGameState] = useState(GameState.START);
@@ -53,12 +56,28 @@ export default function App() {
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
   const [customPromptValue, setCustomPromptValue] = useState('');
   
+  const toggleCustomPrompt = useCallback(() => {
+    if (gameState !== GameState.CHOICES) {
+      return;
+    }
+    setChoiceRegenerationError(null);
+    setIsCustomPromptOpen((prev) => !prev);
+  }, [gameState]);
+
+  const handleCustomPromptChange = useCallback((value: string) => {
+    setCustomPromptValue(value);
+    if (choiceRegenerationError) {
+      setChoiceRegenerationError(null);
+    }
+  }, [choiceRegenerationError]);
+
   // UI state
   const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState<{message: string; action: () => void} | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   const [selectedModel, setSelectedModel] = useState<VideoModel>(() => {
     const saved = localStorage.getItem('veo-model-preference');
     return (saved as VideoModel) || 'veo-3.1-fast-generate-preview';
@@ -421,8 +440,18 @@ export default function App() {
       setIsPrefetchingChoices(true);
       
       try {
-        const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
-        const newChoices = await generateChoices(storyContext);
+        // Build rich story context for prefetch
+        const storyCtx = buildStoryContext(videoSegments);
+        const recentChoiceTypes = videoSegments
+          .slice(-3)
+          .flatMap(s => s.choices || [])
+          .map(categorizeChoice);
+        
+        const newChoices = await generateChoices(storyCtx.fullNarrative, undefined, {
+          progressionHints: storyCtx.progressionHints,
+          recentChoiceTypes,
+          storyPhase: storyCtx.storyArcPhase,
+        });
         
         // Store preloaded choices
         setPreloadedChoices({ segmentId: lastSegment.id, choices: newChoices });
@@ -460,8 +489,18 @@ export default function App() {
         setGameState(GameState.GENERATING_CHOICES);
         setLoadingTitle("Imagining What's Next...");
         
-        const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
-        newChoices = await generateChoices(storyContext, lastFrameDataUrl);
+        // Build rich story context
+        const storyCtx = buildStoryContext(videoSegments);
+        const recentChoiceTypes = videoSegments
+          .slice(-3)
+          .flatMap(s => s.choices || [])
+          .map(categorizeChoice);
+        
+        newChoices = await generateChoices(storyCtx.fullNarrative, lastFrameDataUrl, {
+          progressionHints: storyCtx.progressionHints,
+          recentChoiceTypes,
+          storyPhase: storyCtx.storyArcPhase,
+        });
       }
       
       const blob = await(await fetch(lastSegment.videoUrl)).blob();
@@ -504,11 +543,20 @@ export default function App() {
     setLoadingTitle(CHOICE_REGEN_LOADING_TITLE);
 
     try {
-      const storyContext = videoSegments.map(segment => segment.prompt).join(' Then, ');
+      // Build rich story context
+      const storyCtx = buildStoryContext(videoSegments);
+      const recentChoiceTypes = videoSegments
+        .slice(-3)
+        .flatMap(s => s.choices || [])
+        .map(categorizeChoice);
+      
       const newChoices = await fetchDistinctChoices({
-        storyContext,
+        storyContext: storyCtx.fullNarrative,
         lastFrameDataUrl: activeSegment.lastFrameDataUrl,
         previousChoices: activeSegment.choices,
+        progressionHints: storyCtx.progressionHints,
+        recentChoiceTypes,
+        storyPhase: storyCtx.storyArcPhase,
       });
 
       const blob = await (await fetch(activeSegment.videoUrl)).blob();
@@ -558,6 +606,8 @@ export default function App() {
         // Clear prefetch state for next video
         setPreloadedChoices(null);
         setIsPrefetchingChoices(false);
+        setIsCustomPromptOpen(false);
+        setCustomPromptValue('');
         
         const blob = await(await fetch(lastSegment.videoUrl)).blob();
         const segmentToUpdate: StoredVideoSegment = { ...lastSegment, videoBlob: blob, selectedChoice: choice };
@@ -582,6 +632,26 @@ export default function App() {
     } else {
       handleError(new Error("Could not find the last frame to continue the story."), 'on choice selection');
     }
+  };
+
+  const handleCustomPromptSubmit = async () => {
+    if (gameState !== GameState.CHOICES) {
+      return;
+    }
+
+    const trimmedPrompt = customPromptValue.trim();
+    if (!trimmedPrompt) {
+      setChoiceRegenerationError(CUSTOM_PROMPT_EMPTY_MESSAGE);
+      return;
+    }
+
+    const lastSegment = videoSegments[videoSegments.length - 1];
+    if (!lastSegment || lastSegment.id !== currentSegmentId || lastSegment.selectedChoice) {
+      return;
+    }
+
+    setChoiceRegenerationError(null);
+    await handleChoiceSelected(trimmedPrompt);
   };
 
   const handleExportStory = async () => {
@@ -644,6 +714,48 @@ export default function App() {
             return;
         }
 
+        // Show export options dialog
+        setShowExportOptions(true);
+    }
+
+    const handleExportWithOverlays = async () => {
+        setShowExportOptions(false);
+        const segmentsToExport = await loadSegments();
+        
+        setLoadingTitle("Creating movie with choice overlays...");
+        setGameState(GameState.EXPORTING_VIDEO);
+        
+        try {
+            const combinedVideoBlob = await combineVideosWithChoiceOverlays(segmentsToExport);
+
+            const url = URL.createObjectURL(combinedVideoBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `veo-visual-novel-movie-with-choices-${Date.now()}.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            // Delay revocation to avoid cancelling the download on some browsers
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        } catch (error) {
+            handleError(error, "during video export with overlays");
+        } finally {
+            const lastSegment = videoSegments[videoSegments.length - 1];
+            if (lastSegment?.choices && !lastSegment.selectedChoice) {
+                setGameState(GameState.CHOICES);
+            } else if (videoSegments.length > 0) {
+                setGameState(GameState.REPLAY);
+            } else {
+                setGameState(GameState.START);
+            }
+        }
+    }
+
+    const handleExportSimple = async () => {
+        setShowExportOptions(false);
+        const segmentsToExport = await loadSegments();
+        
         setLoadingTitle("Stitching your movie together...");
         setGameState(GameState.EXPORTING_VIDEO);
         
@@ -732,12 +844,12 @@ export default function App() {
   return (
     <div className="bg-gray-900 text-gray-200 min-h-screen flex flex-col font-sans">
         {/* Loading Indicator */}
+        {gameState === GameState.GENERATING_VIDEO && <LoadingIndicator title={loadingTitle} variant="video" model={selectedModel} />}
         {(
-          gameState === GameState.GENERATING_VIDEO ||
           gameState === GameState.EXPORTING ||
           gameState === GameState.IMPORTING ||
           gameState === GameState.EXPORTING_VIDEO
-        ) && <LoadingIndicator title={loadingTitle} />}
+        ) && <LoadingIndicator title={loadingTitle} variant="simple" />}
         
         {/* Story Timeline Sidebar */}
         <StoryTimeline
@@ -755,6 +867,15 @@ export default function App() {
             onConfirm={showConfirmation.action}
             onCancel={() => setShowConfirmation(null)}
             type="warning"
+          />
+        )}
+
+        {/* Export Options Dialog */}
+        {showExportOptions && (
+          <ExportOptionsDialog
+            onExportWithOverlays={handleExportWithOverlays}
+            onExportSimple={handleExportSimple}
+            onCancel={() => setShowExportOptions(false)}
           />
         )}
 
@@ -870,6 +991,15 @@ export default function App() {
                 {videoSegments.map((segment, index) => {
                     const isLastSegment = index === videoSegments.length - 1;
                     const isCurrentSegment = segment.id === currentSegmentId;
+                    const canRegenerateForSegment =
+                        isCurrentSegment &&
+                        isLastSegment &&
+                        gameState === GameState.CHOICES &&
+                        !segment.selectedChoice;
+                    const isGeneratingChoicesForSegment =
+                        isCurrentSegment && gameState === GameState.GENERATING_CHOICES;
+                    const isCustomPromptSubmitting =
+                        isCurrentSegment && gameState === GameState.GENERATING_VIDEO;
                     return (
                         <SegmentDisplay
                             key={segment.id}
@@ -885,19 +1015,18 @@ export default function App() {
                             onVideoEnd={handleVideoEnd}
                             onVideoProgress={isLastSegment ? handleVideoProgress : undefined}
                                         onChoiceSelect={handleChoiceSelected}
-                            onRegenerateChoices={handleRegenerateChoices}
-                            canRegenerateChoices={
-                                isCurrentSegment &&
-                                isLastSegment &&
-                                gameState === GameState.CHOICES &&
-                                !segment.selectedChoice
-                            }
+                            onRegenerateChoices={canRegenerateForSegment ? handleRegenerateChoices : undefined}
+                            canRegenerateChoices={canRegenerateForSegment}
                             isRegeneratingChoices={gameState === GameState.GENERATING_CHOICES}
                             regenerationError={choiceRegenerationError}
-                            isChoiceLoading={isCurrentSegment && gameState === GameState.GENERATING_CHOICES}
+                            isChoiceLoading={isGeneratingChoicesForSegment}
                             choiceLoadingTitle={loadingTitle}
-                            isCustomPromptOpen={isCustomPromptOpen}
-                            onCustomPromptToggle={() => setIsCustomPromptOpen(prev => !prev)}
+                            isCustomPromptOpen={canRegenerateForSegment ? isCustomPromptOpen : false}
+                            onCustomPromptToggle={canRegenerateForSegment ? toggleCustomPrompt : undefined}
+                            customPromptValue={customPromptValue}
+                            onCustomPromptChange={canRegenerateForSegment ? handleCustomPromptChange : undefined}
+                            onCustomPromptSubmit={canRegenerateForSegment ? handleCustomPromptSubmit : undefined}
+                            isCustomPromptSubmitting={isCustomPromptSubmitting}
                         />
                     )
                 })}

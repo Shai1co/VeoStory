@@ -87,6 +87,7 @@ export interface VideoModelMetadata {
   features: string[];
   limitations?: string[];
   requiresApiKey?: string; // Environment variable name for API key
+  estimatedSeconds?: number; // Estimated generation time in seconds for ETA calculation
 }
 
 export enum GameState {

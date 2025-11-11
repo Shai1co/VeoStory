@@ -58,34 +58,97 @@ export const pollVideoOperation = async (operation: any) => {
   return currentOperation;
 };
 
-export const generateChoices = async (storyContext: string, lastFrameBase64?: string): Promise<string[]> => {
+export interface ChoiceGenerationOptions {
+  storyContext: string;
+  lastFrameBase64?: string;
+  temperature?: number;
+  antiPatterns?: string[];
+  progressionHints?: string[];
+  recentChoiceTypes?: string[];
+  storyPhase?: string;
+}
+
+export const generateChoices = async (
+  storyContext: string,
+  lastFrameBase64?: string,
+  options?: Partial<ChoiceGenerationOptions>
+): Promise<string[]> => {
   const ai = getAIClient();
+  
+  const temperature = options?.temperature ?? 0.8;
+  const antiPatterns = options?.antiPatterns ?? [];
+  const progressionHints = options?.progressionHints ?? [];
+  const recentChoiceTypes = options?.recentChoiceTypes ?? [];
+  const storyPhase = options?.storyPhase ?? 'ongoing';
+  
+  // Build anti-pattern section
+  let antiPatternSection = '';
+  if (antiPatterns.length > 0) {
+    antiPatternSection = `\nAVOID these patterns (they were recently used):\n${antiPatterns.map(p => `- ${p}`).join('\n')}\n`;
+  }
+  
+  // Build choice type diversity section
+  let diversitySection = '';
+  if (recentChoiceTypes.length > 0) {
+    const typeSet = new Set(recentChoiceTypes);
+    if (typeSet.size <= 2) {
+      diversitySection = `\nRecent choices have been mostly: ${Array.from(typeSet).join(', ')}. 
+IMPORTANT: Provide MORE VARIETY - include different action types!\n`;
+    }
+  }
+  
+  // Build progression hints section
+  let progressionSection = '';
+  if (progressionHints.length > 0) {
+    progressionSection = `\nStory Progression Guidance (Story Phase: ${storyPhase}):\n${progressionHints.map(h => `- ${h}`).join('\n')}\n`;
+  }
+  
   const prompt = `
     You are a game designer creating exciting action choices for a video game adventure. Based on the current story, suggest three dynamic and ACTION-ORIENTED choices.
 
-    Story Scene: "${storyContext}"
+    Story Context: "${storyContext}"
 
     If a reference frame is provided, align the choices with the details in that scene (characters, environment, objects, mood).
-
-    REQUIREMENTS for each choice:
-    - Use STRONG ACTION VERBS (sprint, investigate, climb, leap, discover, confront, etc.)
-    - Show MOVEMENT and EXPLORATION (the character must DO something active)
-    - Make it feel like a game objective or quest
-    - Create different types of actions: combat/bold, stealth/careful, exploration/curious
-    - Keep under 10 words but make them exciting
-    - Make the player WANT to see what happens next
+    ${antiPatternSection}${diversitySection}${progressionSection}
+    CRITICAL REQUIREMENTS for each choice:
+    
+    1. DIVERSITY - Each choice MUST represent a DIFFERENT approach:
+       - Choice 1: BOLD/DIRECT (combat, confrontation, decisive action)
+       - Choice 2: CAUTIOUS/TACTICAL (stealth, planning, careful approach)
+       - Choice 3: CREATIVE/EXPLORATORY (investigation, discovery, unconventional solution)
+    
+    2. ACTION VERBS - Use powerful, specific verbs:
+       ✓ sprint, investigate, climb, leap, discover, confront, strike, dodge, summon, examine
+       ✗ go, look, try, think, consider, wonder
+    
+    3. STORY ADVANCEMENT - Each choice MUST move the story forward:
+       ✓ Introduce new locations, challenges, or discoveries
+       ✓ Change the situation significantly
+       ✗ Circular actions (go back, wait, stay, return to start)
+       ✗ Vague or passive actions
+    
+    4. SPECIFICITY - Be concrete and vivid:
+       ✓ "Sprint toward the glowing portal before it closes"
+       ✗ "Go somewhere"
+    
+    5. CONSEQUENCES - Each choice should imply different outcomes:
+       - Different risks, rewards, and story paths
+       - Make players genuinely curious what happens next
+    
+    6. LENGTH - Keep under 10 words but pack them with energy
     
     Good examples:
-    - "Sprint toward the glowing portal before it closes"
-    - "Sneak through the shadows to investigate the noise"
-    - "Climb the ancient tower to survey the landscape"
+    - "Charge through the gate and challenge the guardian" (BOLD)
+    - "Sneak through shadows to spy on the enemy camp" (CAUTIOUS)
+    - "Investigate the glowing runes for hidden secrets" (CREATIVE)
     
-    Bad examples (too passive):
-    - "Look around"
-    - "Wait and see"
-    - "Go back"
+    Bad examples:
+    - "Look around the area" (too vague, no story advancement)
+    - "Go back to safety" (circular, retreating)
+    - "Think about what to do next" (passive, no action)
+    - "Try something" (not specific)
     
-    Return ONLY a JSON array of 3 action-packed choices.
+    Return ONLY a JSON array of 3 distinctly different, action-packed choices.
   `;
 
   const parts: any[] = [{ text: prompt }];
@@ -119,7 +182,7 @@ export const generateChoices = async (storyContext: string, lastFrameBase64?: st
             description: 'A dynamic, action-oriented choice for the character.'
           }
         },
-        temperature: 0.8, // More creative choices
+        temperature: temperature, // Dynamic temperature based on context
       },
     });
 
