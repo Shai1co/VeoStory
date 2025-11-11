@@ -732,12 +732,12 @@ export default function App() {
   return (
     <div className="bg-gray-900 text-gray-200 min-h-screen flex flex-col font-sans">
         {/* Loading Indicator */}
+        {gameState === GameState.GENERATING_VIDEO && <LoadingIndicator title={loadingTitle} variant="video" />}
         {(
-          gameState === GameState.GENERATING_VIDEO ||
           gameState === GameState.EXPORTING ||
           gameState === GameState.IMPORTING ||
           gameState === GameState.EXPORTING_VIDEO
-        ) && <LoadingIndicator title={loadingTitle} />}
+        ) && <LoadingIndicator title={loadingTitle} variant="simple" />}
         
         {/* Story Timeline Sidebar */}
         <StoryTimeline
