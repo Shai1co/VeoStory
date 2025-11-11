@@ -58,12 +58,14 @@ export const pollVideoOperation = async (operation: any) => {
   return currentOperation;
 };
 
-export const generateChoices = async (storyContext: string): Promise<string[]> => {
+export const generateChoices = async (storyContext: string, lastFrameBase64?: string): Promise<string[]> => {
   const ai = getAIClient();
   const prompt = `
     You are a game designer creating exciting action choices for a video game adventure. Based on the current story, suggest three dynamic and ACTION-ORIENTED choices.
 
     Story Scene: "${storyContext}"
+
+    If a reference frame is provided, align the choices with the details in that scene (characters, environment, objects, mood).
 
     REQUIREMENTS for each choice:
     - Use STRONG ACTION VERBS (sprint, investigate, climb, leap, discover, confront, etc.)
@@ -86,10 +88,28 @@ export const generateChoices = async (storyContext: string): Promise<string[]> =
     Return ONLY a JSON array of 3 action-packed choices.
   `;
 
+  const parts: any[] = [{ text: prompt }];
+
+  if (lastFrameBase64) {
+    const commaIndex = lastFrameBase64.indexOf(',');
+    const imageBytes = commaIndex >= 0 ? lastFrameBase64.slice(commaIndex + 1) : lastFrameBase64;
+    parts.push({
+      inlineData: {
+        data: imageBytes,
+        mimeType: 'image/jpeg',
+      },
+    });
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt,
+      contents: [
+        {
+          role: 'user',
+          parts,
+        },
+      ],
       config: {
         responseMimeType: "application/json",
         responseSchema: {

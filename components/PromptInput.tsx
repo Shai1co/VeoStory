@@ -1,8 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { STYLE_PRESETS, StylePreset } from '../config/stylePresets';
-import { buildPrompt } from '../utils/prompt';
 import { getRandomPrompt, isGeminiTextAvailable } from '../services/geminiTextService';
+import ManualPromptBuilder from './ManualPromptBuilder';
+import {
+  buildBlueprintFromManualSelections,
+  createManualRandomPrompt,
+  createRandomManualSelections,
+  ManualBlueprintSelections,
+  renderPromptFromBlueprint,
+} from '../utils/randomPromptBlueprint';
 
 interface PromptInputProps {
   onSubmit: (prompt: string, stylePreset: StylePreset | null) => void;
@@ -19,6 +26,10 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
   const [selectedPreset, setSelectedPreset] = useState<StylePreset | null>(STYLE_PRESETS[0]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [isManualBuilderOpen, setIsManualBuilderOpen] = useState(false);
+  const [manualSelections, setManualSelections] = useState<ManualBlueprintSelections>(() =>
+    createRandomManualSelections(),
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -65,18 +76,29 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
         const randomPrompt = await getRandomPrompt();
         setPrompt(randomPrompt);
       } else {
-        // Fallback to hardcoded prompts
-        const randomIndex = Math.floor(Math.random() * placeholders.length);
-        setPrompt(placeholders[randomIndex]);
+        const manualPrompt = createManualRandomPrompt();
+        setPrompt(manualPrompt);
       }
     } catch (error) {
       console.warn('Failed to get Gemini random prompt, using fallback:', error);
-      // Fallback to hardcoded prompts on error
-      const randomIndex = Math.floor(Math.random() * placeholders.length);
-      setPrompt(placeholders[randomIndex]);
+      const manualPrompt = createManualRandomPrompt();
+      setPrompt(manualPrompt);
     } finally {
       setIsLoadingRandom(false);
     }
+  };
+
+  const handleOpenManualBuilder = () => {
+    setIsManualBuilderOpen(true);
+  };
+
+  const handleManualBuilderApply = (selections: ManualBlueprintSelections) => {
+    setManualSelections(selections);
+    const blueprint = buildBlueprintFromManualSelections(selections);
+    const manualPrompt = renderPromptFromBlueprint(blueprint);
+    setPrompt(manualPrompt);
+    setIsManualBuilderOpen(false);
+    setIsExpanded(false);
   };
 
   // Auto-grow textarea based on content
@@ -176,6 +198,14 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
+              onClick={handleOpenManualBuilder}
+              className="bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-lg hover:bg-slate-600 transition-all duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed text-lg shadow-md"
+              disabled={disabled}
+            >
+              🛠️ Manual Builder
+            </button>
+            <button
+              type="button"
               onClick={handleRandomize}
               className="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-400 transition-all duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed text-lg shadow-md relative overflow-hidden"
               disabled={disabled || isLoadingRandom}
@@ -254,6 +284,33 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isManualBuilderOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 fade-in">
+          <div className="bg-slate-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col border border-slate-700 scale-in">
+            <div className="flex justify-between items-center p-6 border-b border-slate-700">
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">
+                Build Prompt Manually
+              </h2>
+              <button
+                onClick={() => setIsManualBuilderOpen(false)}
+                className="text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-grow p-6 overflow-y-auto">
+              <ManualPromptBuilder
+                initialSelections={manualSelections}
+                onApply={handleManualBuilderApply}
+                onCancel={() => setIsManualBuilderOpen(false)}
+              />
             </div>
           </div>
         </div>

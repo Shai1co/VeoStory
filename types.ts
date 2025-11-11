@@ -17,6 +17,29 @@ export interface StoredVideoSegment {
   selectedChoice?: string;
 }
 
+export type GenerationIntent = 'initial' | 'continuation';
+
+export type GenerationTaskStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled';
+
+export interface GenerationQueueTask {
+  id: string;
+  segmentId: number;
+  prompt: string;
+  model: VideoModel;
+  imageData?: string | null;
+  intent: GenerationIntent;
+  status: GenerationTaskStatus;
+  createdAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  error?: string;
+}
+
 // Type for serializing a segment for file export
 export interface SerializableSegment {
   id: number;
