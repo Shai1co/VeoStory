@@ -15,7 +15,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     quality: 'Good',
     costLevel: 1,
     features: ['Text-to-video', 'Image-to-video', '720p resolution', '~8s duration'],
-    requiresApiKey: 'API_KEY'
+    requiresApiKey: 'API_KEY',
+    estimatedSeconds: 60
   },
   
   'veo-3.1-generate-preview': {
@@ -28,7 +29,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     quality: 'Excellent',
     costLevel: 2,
     features: ['Text-to-video', 'Image-to-video', '720p resolution', '~8s duration'],
-    requiresApiKey: 'API_KEY'
+    requiresApiKey: 'API_KEY',
+    estimatedSeconds: 150
   },
   
   'runway-gen-3-alpha': {
@@ -42,7 +44,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 3,
     features: ['Text-to-video', 'Image-to-video', '720p resolution', '5-10s duration', 'Cinematic controls'],
     limitations: ['Higher cost per generation', 'Ready for testing - API format updated'],
-    requiresApiKey: 'RUNWAY_API_KEY'
+    requiresApiKey: 'RUNWAY_API_KEY',
+    estimatedSeconds: 45
   },
   
   'runway-gen-4-turbo': {
@@ -56,7 +59,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 4,
     features: ['Text-to-video', 'Image-to-video', '720p resolution', '5-10s duration', 'Faster generation', 'Advanced controls'],
     limitations: ['Premium pricing', 'Ready for testing - API format updated'],
-    requiresApiKey: 'RUNWAY_API_KEY'
+    requiresApiKey: 'RUNWAY_API_KEY',
+    estimatedSeconds: 30
   },
   
   'stable-video-diffusion-img2vid': {
@@ -70,7 +74,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 1,
     features: ['Text-to-video (via SD3)', 'Image-to-video', '576p resolution', 'Smooth motion', 'Open-source'],
     limitations: ['Only 2-second videos', 'Lower resolution', 'Two-step process for text-to-video'],
-    requiresApiKey: 'STABILITY_API_KEY'
+    requiresApiKey: 'STABILITY_API_KEY',
+    estimatedSeconds: 55
   },
   
   'replicate-svd': {
@@ -84,7 +89,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 1,
     features: ['Text-to-video (via Stability AI/Placeholder)', 'Image-to-video', '576p resolution', 'Smooth motion', '25 frames', 'Reliable API'],
     limitations: ['~1 second videos', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 70
   },
 
   'replicate-animatediff': {
@@ -98,7 +104,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 1,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', '512x512 resolution', 'Smooth animations', '2-4 second videos', 'Creative motion'],
     limitations: ['Square format', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 40
   },
 
   'replicate-hotshot': {
@@ -112,7 +119,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 1,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', 'GIF-style loops', '1-2 second videos', 'Fast iterations', 'Artistic styles'],
     limitations: ['Very short duration', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 25
   },
 
   'replicate-hailuo-02': {
@@ -126,7 +134,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 2,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', '768p resolution', '6-10 second videos', 'Realistic physics', 'Complex motion'],
     limitations: ['Two-step process for text-to-video', 'Higher cost'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 75
   },
 
   'replicate-seedance-lite': {
@@ -140,7 +149,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 1,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', '480p resolution', '5-10 second videos', 'Multi-shot support', 'Cinematic quality'],
     limitations: ['Lower resolution', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 50
   },
 
   'replicate-seedance-pro-fast': {
@@ -154,7 +164,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 2,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', '720p resolution', '5-10 second videos', 'Fast inference', 'Cinematic quality'],
     limitations: ['Two-step process for text-to-video', 'Moderate cost'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 60
   },
 
   'replicate-seedance-pro': {
@@ -168,7 +179,8 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     costLevel: 3,
     features: ['Text-to-video (via FLUX)', 'Image-to-video', '720p resolution', '5-10 second videos', 'Multi-shot support', 'Premium quality'],
     limitations: ['Slower generation', 'Higher cost', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY'
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 85
   }
 };
 

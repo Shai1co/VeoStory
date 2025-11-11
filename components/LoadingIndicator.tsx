@@ -1,11 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
+import { VideoModel } from '../types';
+import { MODEL_METADATA } from '../config/modelMetadata';
 
 type LoadingVariant = 'video' | 'simple';
 
 interface LoadingIndicatorProps {
     title: string;
     variant?: LoadingVariant;
+    model?: VideoModel;
 }
 
 const loadingMessages = [
@@ -20,7 +23,7 @@ const loadingMessages = [
 const STAGE_DURATION_MS = 8000;
 const TOTAL_ESTIMATED_TIME_MS = 90000;
 
-const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ title, variant = 'simple' }) => {
+const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ title, variant = 'simple', model }) => {
     const [messageIndex, setMessageIndex] = useState(0);
     const [message, setMessage] = useState(loadingMessages[0]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -64,13 +67,35 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ title, variant = 's
         }
     }, [variant]);
 
-    const progressPercentage = Math.min((elapsedSeconds / (TOTAL_ESTIMATED_TIME_MS / 1000)) * 100, 95);
+    const calculateProgressPercentage = () => {
+        if (model) {
+            const modelMetadata = MODEL_METADATA[model];
+            if (modelMetadata?.estimatedSeconds) {
+                return Math.min((elapsedSeconds / modelMetadata.estimatedSeconds) * 100, 95);
+            }
+        }
+        return Math.min((elapsedSeconds / (TOTAL_ESTIMATED_TIME_MS / 1000)) * 100, 95);
+    };
+
+    const progressPercentage = calculateProgressPercentage();
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
+
+    const calculateETA = () => {
+        if (!model) return null;
+        const modelMetadata = MODEL_METADATA[model];
+        if (!modelMetadata?.estimatedSeconds) return null;
+        
+        const estimatedTotal = modelMetadata.estimatedSeconds;
+        const remaining = Math.max(0, estimatedTotal - elapsedSeconds);
+        return formatTime(remaining);
+    };
+
+    const eta = calculateETA();
 
     if (variant === 'video') {
         return (
@@ -122,9 +147,16 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({ title, variant = 's
                         ></div>
                     </div>
 
-                    {/* Elapsed Time */}
-                    <div className="text-slate-400 text-sm mb-4 font-mono">
-                        Elapsed: {formatTime(elapsedSeconds)}
+                    {/* Elapsed Time and ETA */}
+                    <div className="flex justify-center items-center gap-6 text-slate-400 text-sm mb-4 font-mono">
+                        <div>
+                            <span className="text-slate-500">Elapsed:</span> {formatTime(elapsedSeconds)}
+                        </div>
+                        {eta !== null && (
+                            <div>
+                                <span className="text-slate-500">ETA:</span> {eta}
+                            </div>
+                        )}
                     </div>
 
                     <p className="text-lg text-slate-300 max-w-md mx-auto">{message}</p>

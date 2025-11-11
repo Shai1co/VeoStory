@@ -732,7 +732,7 @@ export default function App() {
   return (
     <div className="bg-gray-900 text-gray-200 min-h-screen flex flex-col font-sans">
         {/* Loading Indicator */}
-        {gameState === GameState.GENERATING_VIDEO && <LoadingIndicator title={loadingTitle} variant="video" />}
+        {gameState === GameState.GENERATING_VIDEO && <LoadingIndicator title={loadingTitle} variant="video" model={selectedModel} />}
         {(
           gameState === GameState.EXPORTING ||
           gameState === GameState.IMPORTING ||
