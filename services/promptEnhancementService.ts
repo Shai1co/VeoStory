@@ -4,12 +4,14 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { getApiKey } from '../utils/apiKeys';
 
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("Gemini API key not found. Please set API_KEY in your environment variables.");
+  const apiKey = getApiKey('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error("Gemini API key not found. Please configure your API keys.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 interface EnhancedPromptResult {

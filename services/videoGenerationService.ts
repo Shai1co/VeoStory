@@ -4,6 +4,7 @@
  */
 
 import { VideoModel, ImageModel } from '../types';
+import { getApiKey } from '../utils/apiKeys';
 import * as veoService from './veoService';
 import * as runwayService from './runwayService';
 import * as stableVideoService from './stableVideoService';
@@ -82,7 +83,12 @@ async function generateVeoVideo(request: VideoGenerationRequest): Promise<VideoG
   }
   
   // Fetch video blob
-  const response = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+  const apiKey = getApiKey('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set. Please configure your API keys.');
+  }
+  
+  const response = await fetch(`${videoUri}&key=${apiKey}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch Veo video: ${response.statusText}`);
   }
@@ -229,13 +235,13 @@ export function isModelAvailable(model: VideoModel): boolean {
   
   switch (provider) {
     case 'veo':
-      return !!process.env.API_KEY;
+      return !!getApiKey('GEMINI_API_KEY');
     case 'runway':
-      return !!process.env.RUNWAY_API_KEY;
+      return !!getApiKey('RUNWAY_API_KEY');
     case 'stable-diffusion':
-      return !!process.env.STABILITY_API_KEY;
+      return !!getApiKey('STABILITY_API_KEY');
     case 'replicate':
-      return !!process.env.REPLICATE_API_KEY;
+      return !!getApiKey('REPLICATE_API_KEY');
     default:
       return false;
   }

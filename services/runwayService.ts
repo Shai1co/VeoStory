@@ -4,6 +4,8 @@
  * Based on official Runway SDK patterns
  */
 
+import { getApiKey } from '../utils/apiKeys';
+
 // Correct model identifiers based on Runway API
 type RunwayModel = 'gen3a_turbo' | 'gen3_alpha' | 'gen4_video';
 
@@ -38,8 +40,8 @@ interface RunwayTask {
   createdAt?: string;
 }
 
-// Use Vite dev proxy to avoid CORS and inject auth headers in dev
-const RUNWAY_API_BASE = '/runway/v1';
+// Direct API calls (CORS allowed by Runway for browser requests)
+const RUNWAY_API_BASE = 'https://api.dev.runwayml.com/v1';
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 120; // 10 minutes max
 
@@ -58,6 +60,11 @@ export async function generateRunwayVideo(
   imageData?: string,
   model: 'runway-gen-3-alpha' | 'runway-gen-4-turbo' = 'runway-gen-3-alpha'
 ): Promise<RunwayTask> {
+  
+  const apiKey = getApiKey('RUNWAY_API_KEY');
+  if (!apiKey) {
+    throw new Error('RUNWAY_API_KEY is not set. Please configure your API keys.');
+  }
   
   // Map our model names to Runway's task types
   const taskType: RunwayTaskType = model === 'runway-gen-4-turbo' 
@@ -98,8 +105,7 @@ export async function generateRunwayVideo(
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      // Auth header will be added by Vite proxy in dev
-      'Authorization': `Bearer ${process.env.RUNWAY_API_KEY || process.env.RUNWAYML_API_SECRET || ''}`,
+      'Authorization': `Bearer ${apiKey}`,
       'X-Runway-Version': '2024-11-06',
     },
     body: JSON.stringify(requestBody)
@@ -134,6 +140,11 @@ export async function generateRunwayVideo(
  * Poll Runway task until completion
  */
 export async function pollRunwayOperation(task: RunwayTask): Promise<RunwayTask> {
+  const apiKey = getApiKey('RUNWAY_API_KEY');
+  if (!apiKey) {
+    throw new Error('RUNWAY_API_KEY is not set. Please configure your API keys.');
+  }
+
   let attempts = 0;
   let currentTask = task;
 
@@ -163,7 +174,7 @@ export async function pollRunwayOperation(task: RunwayTask): Promise<RunwayTask>
     const response = await fetch(pollEndpoint, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.RUNWAY_API_KEY || process.env.RUNWAYML_API_SECRET || ''}`,
+        'Authorization': `Bearer ${apiKey}`,
         'X-Runway-Version': '2024-11-06',
         'Accept': 'application/json'
       }

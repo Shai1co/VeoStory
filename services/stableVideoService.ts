@@ -3,6 +3,8 @@
  * Generates 2-second videos from images using SVD
  */
 
+import { getApiKey } from '../utils/apiKeys';
+
 interface StableVideoRequest {
   image: string; // base64 encoded image
   cfg_scale?: number; // 0-10, controls how much the video sticks to the image
@@ -16,8 +18,8 @@ interface StableVideoResponse {
   finish_reason?: string;
 }
 
-// Use Vite dev proxy to avoid CORS and inject auth headers in dev
-const STABILITY_API_BASE = '/stability/v2alpha/generation/image-to-video';
+// Direct API calls (CORS allowed by Stability AI)
+const STABILITY_API_BASE = 'https://api.stability.ai/v2alpha/generation/image-to-video';
 const POLL_INTERVAL_MS = 10000; // Poll every 10 seconds
 const MAX_POLL_ATTEMPTS = 60; // 10 minutes max
 
@@ -52,11 +54,16 @@ export async function generateStableVideo(
   formData.append('motion_bucket_id', motionStrength.toString());
   formData.append('seed', Math.floor(Math.random() * 1000000).toString());
 
+  const apiKey = getApiKey('STABILITY_API_KEY');
+  if (!apiKey) {
+    throw new Error('STABILITY_API_KEY is not set. Please configure your API keys.');
+  }
+
   const response = await fetch(STABILITY_API_BASE, {
     method: 'POST',
     headers: {
       'accept': 'application/json',
-      'authorization': `Bearer ${process.env.STABILITY_API_KEY || ''}`,
+      'authorization': `Bearer ${apiKey}`,
     },
     body: formData
   });
@@ -76,6 +83,11 @@ export async function generateStableVideo(
  * Poll Stability AI for video generation result
  */
 export async function pollStableVideoOperation(generationId: string): Promise<Blob> {
+  const apiKey = getApiKey('STABILITY_API_KEY');
+  if (!apiKey) {
+    throw new Error('STABILITY_API_KEY is not set. Please configure your API keys.');
+  }
+
   let attempts = 0;
 
   while (attempts < MAX_POLL_ATTEMPTS) {
@@ -86,7 +98,7 @@ export async function pollStableVideoOperation(generationId: string): Promise<Bl
       method: 'GET',
       headers: {
         'accept': 'video/*', // Accept video response
-        'authorization': `Bearer ${process.env.STABILITY_API_KEY || ''}`,
+        'authorization': `Bearer ${apiKey}`,
       }
     });
 

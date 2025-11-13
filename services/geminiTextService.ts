@@ -10,6 +10,7 @@ import {
   renderPromptFromBlueprint,
   shouldRejectGeneratedPrompt,
 } from '../utils/randomPromptBlueprint';
+import { getApiKey } from '../utils/apiKeys';
 
 // Gemini API configuration
 const GEMINI_API_VERSION = 'v1beta';
@@ -66,7 +67,7 @@ interface GeminiTextResponse {
  * Generate a random creative story prompt using Gemini
  */
 export async function getRandomPrompt(): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey('GEMINI_API_KEY');
   const configuredModel = process.env.GEMINI_TEXT_MODEL?.trim();
   const modelCandidates = [
     ...(configuredModel ? [configuredModel] : []),
@@ -147,7 +148,7 @@ export async function getRandomPrompt(): Promise<string> {
  * Expand an existing prompt to make it more detailed and robust
  */
 export async function expandPrompt(existingPrompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey('GEMINI_API_KEY');
   const configuredModel = process.env.GEMINI_TEXT_MODEL?.trim();
   const modelCandidates = [
     ...(configuredModel ? [configuredModel] : []),
@@ -229,7 +230,7 @@ Respond with ONLY the expanded prompt, nothing else.`;
  * Check if Gemini Text API is available
  */
 export function isGeminiTextAvailable(): boolean {
-  return !!process.env.GEMINI_API_KEY;
+  return !!getApiKey('GEMINI_API_KEY');
 }
 
 async function invokeGemini(

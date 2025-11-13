@@ -33,10 +33,12 @@ import ImagePreview from './components/ImagePreview';
 import StoryModelControls from './components/StoryModelControls';
 import GenerationStatusBanner from './components/GenerationStatusBanner';
 import ExportOptionsDialog, { ExportResolution } from './components/ExportOptionsDialog';
+import ApiKeysDialog from './components/ApiKeysDialog';
 import { StylePreset } from './config/stylePresets';
 import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
 import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
+import { hasRequiredApiKeys } from './utils/apiKeys';
 
 const SCROLL_TO_BOTTOM_DELAY_MS = 100;
 const CHOICE_REGEN_LOADING_TITLE = 'Discovering Alternate Paths...';
@@ -87,6 +89,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showApiKeysDialog, setShowApiKeysDialog] = useState(false);
   const [selectedModel, setSelectedModel] = useState<VideoModel>(() => {
     const saved = localStorage.getItem('veo-model-preference');
     return (saved as VideoModel) || 'veo-3.1-fast-generate-preview';
@@ -154,7 +157,12 @@ export default function App() {
   }, []);
 
   const checkApiKeyAndLoadGame = useCallback(async () => {
-    // Always assume API key is available via environment variable
+    // Check if required API keys are configured
+    if (!hasRequiredApiKeys()) {
+      setShowApiKeysDialog(true);
+      setGameState(GameState.START);
+      return;
+    }
     await loadGameFromDB();
   }, [loadGameFromDB]);
 
@@ -1038,6 +1046,17 @@ export default function App() {
           />
         )}
 
+        {/* API Keys Configuration Dialog */}
+        <ApiKeysDialog
+          isOpen={showApiKeysDialog}
+          onClose={() => setShowApiKeysDialog(false)}
+          onSave={() => {
+            // Reload game after API keys are configured
+            checkApiKeyAndLoadGame();
+          }}
+          canClose={hasRequiredApiKeys()}
+        />
+
         {/* Keyboard Shortcuts Help */}
         <KeyboardShortcutsHelp
           isOpen={showKeyboardHelp}
@@ -1102,6 +1121,16 @@ export default function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                   </svg>
                 )}
+              </button>
+              {/* API Keys Settings Button */}
+              <button
+                onClick={() => setShowApiKeysDialog(true)}
+                className="p-2 text-slate-400 hover:text-sky-400 transition-colors"
+                title="Configure API Keys"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
               </button>
               {/* Keyboard Shortcuts Help Button */}
               <button

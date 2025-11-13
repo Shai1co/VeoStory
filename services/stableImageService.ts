@@ -4,6 +4,8 @@
  * Used to create the first frame for text-to-video via SVD
  */
 
+import { getApiKey } from '../utils/apiKeys';
+
 export type StableImageModel = 'sd3' | 'sd3-5' | 'core' | 'ultra';
 
 interface StableImageRequest {
@@ -15,8 +17,8 @@ interface StableImageRequest {
   model?: StableImageModel;
 }
 
-// Use Vite dev proxy to avoid CORS and inject auth headers in dev
-const STABILITY_IMAGE_API_BASE = '/stability/v2beta/stable-image/generate';
+// Direct API calls (CORS allowed by Stability AI)
+const STABILITY_IMAGE_API_BASE = 'https://api.stability.ai/v2beta/stable-image/generate';
 
 /**
  * Generate an image from a text prompt using Stable Diffusion
@@ -55,11 +57,16 @@ export async function generateStableImage(
     formData.append('seed', seed.toString());
   }
 
+  const apiKey = getApiKey('STABILITY_API_KEY');
+  if (!apiKey) {
+    throw new Error('STABILITY_API_KEY is not set. Please configure your API keys.');
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'accept': 'image/*',
-      'authorization': `Bearer ${process.env.STABILITY_API_KEY || ''}`,
+      'authorization': `Bearer ${apiKey}`,
     },
     body: formData
   });

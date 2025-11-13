@@ -3,6 +3,8 @@
  * Uses Replicate's API to run Stable Video Diffusion model
  */
 
+import { getApiKey } from '../utils/apiKeys';
+
 interface ReplicatePrediction {
   id: string;
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
@@ -27,9 +29,8 @@ interface ReplicateCreateRequest {
 }
 
 // Replicate API configuration
-// Use proxied endpoint in development to avoid CORS issues
-// In production, you would need a proper backend to handle this
-const REPLICATE_API_BASE = '/replicate/v1';
+// Direct API calls (no proxy needed - CORS is allowed by Replicate)
+const REPLICATE_API_BASE = 'https://api.replicate.com/v1';
 const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
 const MAX_POLL_ATTEMPTS = 180; // 6 minutes max
 
@@ -234,8 +235,10 @@ export async function createReplicatePrediction(
   options: any = {}
 ): Promise<ReplicatePrediction> {
   
-  // Note: API key is injected via Vite proxy, so we don't send it from the browser
-  // This keeps the key secure and avoids CORS issues
+  const apiKey = getApiKey('REPLICATE_API_KEY');
+  if (!apiKey) {
+    throw new Error('REPLICATE_API_KEY is not set. Please configure your API keys.');
+  }
 
   // Get model configuration
   const modelConfig = getReplicateModelConfig(modelId);
@@ -275,7 +278,7 @@ export async function createReplicatePrediction(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // Authorization header is added by Vite proxy in development
+      'Authorization': `Token ${apiKey}`,
     },
     body: JSON.stringify(requestBody)
   });
@@ -308,7 +311,10 @@ export async function createReplicatePrediction(
  * Poll prediction until completion
  */
 export async function pollReplicatePrediction(predictionId: string): Promise<ReplicatePrediction> {
-  // Note: API key is injected via Vite proxy, so we don't send it from the browser
+  const apiKey = getApiKey('REPLICATE_API_KEY');
+  if (!apiKey) {
+    throw new Error('REPLICATE_API_KEY is not set. Please configure your API keys.');
+  }
 
   let attempts = 0;
 
@@ -321,8 +327,8 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
     const response = await fetch(`${REPLICATE_API_BASE}/predictions/${predictionId}`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
-        // Authorization header is added by Vite proxy in development
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${apiKey}`,
       }
     });
 
@@ -405,6 +411,11 @@ export async function fetchReplicateVideoBlob(videoUrl: string): Promise<Blob> {
  * Generate image from text using FLUX Schnell (cheapest/free option on Replicate)
  */
 async function generateImageWithFlux(prompt: string): Promise<string> {
+  const apiKey = getApiKey('REPLICATE_API_KEY');
+  if (!apiKey) {
+    throw new Error('REPLICATE_API_KEY is not set. Please configure your API keys.');
+  }
+
   console.log('🎨 Generating image with FLUX Schnell (free)...');
 
   const requestBody = {
@@ -423,6 +434,7 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Token ${apiKey}`,
     },
     body: JSON.stringify(requestBody)
   });

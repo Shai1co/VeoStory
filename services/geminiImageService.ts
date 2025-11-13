@@ -1,5 +1,6 @@
 // services/geminiImageService.ts
 import { extractBase64 } from '../utils/video';
+import { getApiKey } from '../utils/apiKeys';
 
 // Gemini API configuration
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -49,10 +50,10 @@ export async function generateGeminiImage(
     quality?: 'standard' | 'high';
   }
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey('GEMINI_API_KEY');
   
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set in environment variables');
+    throw new Error('GEMINI_API_KEY is not set. Please configure your API keys.');
   }
 
   // Build the prompt with style and quality instructions
@@ -189,5 +190,5 @@ function buildImagePrompt(
  * Check if Gemini API key is available
  */
 export function isGeminiAvailable(): boolean {
-  return !!process.env.GEMINI_API_KEY;
+  return !!getApiKey('GEMINI_API_KEY');
 }
