@@ -96,7 +96,7 @@ export default function App() {
   });
   const [selectedImageModel, setSelectedImageModel] = useState<ImageModel>(() => {
     const saved = localStorage.getItem('veo-image-model-preference');
-    return (saved as ImageModel) || 'flux-schnell';
+    return (saved as ImageModel) || 'gemini-imagen-3';
   });
   const [isGlobalMuted, setIsGlobalMuted] = useState<boolean>(() => {
     const saved = localStorage.getItem('veo-global-mute');

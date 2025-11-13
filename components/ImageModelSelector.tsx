@@ -7,6 +7,7 @@ import {
   getImageCostEstimate, 
   IMAGE_PROVIDER_NAMES 
 } from '../config/imageModelMetadata';
+import { getApiKey } from '../utils/apiKeys';
 
 interface ImageModelSelectorProps {
   selectedModel: ImageModel;
@@ -20,7 +21,7 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   disabled = false 
 }) => {
   const [expandedProviders, setExpandedProviders] = useState<Set<ImageProvider>>(
-    new Set(['replicate']) // Replicate expanded by default
+    new Set(['gemini']) // Gemini expanded by default since it's the required key
   );
 
   const modelsByProvider = getImageModelsByProvider();
@@ -38,7 +39,7 @@ const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   const isModelAvailable = (model: ImageModel): boolean => {
     const metadata = IMAGE_MODEL_METADATA[model];
     if (!metadata.requiresApiKey) return true;
-    return !!process.env[metadata.requiresApiKey];
+    return !!getApiKey(metadata.requiresApiKey as any);
   };
 
   return (

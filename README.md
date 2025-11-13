@@ -113,7 +113,7 @@ _Note: You'll need to provide your own API keys to use the app (see below)._
 | **Google (Veo)** | Veo 3.1 Fast | ~$0.08-0.12 | 5s video, 720p |
 | **Google (Imagen)** | Imagen 3 | Free tier available | Image generation |
 | **Replicate** | Wan 2.5 Fast | ~$0.04-0.06 | 5s video |
-| **Replicate** | FLUX Schnell | Free | Image generation |
+| **Replicate** | FLUX Schnell | ~$0.003/image | Fast image generation |
 | **Runway** | Gen-3 Alpha | ~$0.05/second | High quality |
 
 > 💡 **Tip:** Start with Google Gemini (free tier) and FLUX Schnell (free) to explore the app without costs!

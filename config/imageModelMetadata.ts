@@ -9,12 +9,12 @@ export const IMAGE_MODEL_METADATA: Record<ImageModel, ImageModelMetadata> = {
     id: 'flux-schnell',
     provider: 'replicate',
     name: 'Flux Schnell',
-    description: 'Fast, free image generation on Replicate - great for quick iterations',
+    description: 'Fast image generation on Replicate - great for quick iterations',
     icon: '⚡',
     speed: '~5-10 seconds',
     quality: 'Good',
     costLevel: 1,
-    requiresApiKey: undefined // Free/no key required
+    requiresApiKey: 'REPLICATE_API_KEY'
   },
   
   'gemini-imagen-3': {
