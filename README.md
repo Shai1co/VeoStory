@@ -12,6 +12,8 @@ Transform your ideas into interactive video adventures powered by cutting-edge A
 
 _Note: You'll need to provide your own API keys to use the app (see below)._
 
+> 🔧 **First-time setup:** Make sure GitHub Pages is set to "GitHub Actions" in your repo settings!
+
 ## ✨ Features
 
 - 🎬 **AI Video Generation** - Multiple models: Google Veo, Replicate Wan/Veo, Runway Gen-3/4
