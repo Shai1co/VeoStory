@@ -66,12 +66,21 @@ export const fetchDistinctChoices = async ({
 }: DistinctChoiceRequest): Promise<string[]> => {
   const previousChoiceSet = new Set(previousChoices.map(normalizeChoice));
   let fallbackChoices: string[] | null = null;
+  const failedAttempts: string[][] = []; // Track all failed attempts
 
   for (let attempt = 0; attempt < MAX_DISTINCT_CHOICE_ATTEMPTS; attempt += 1) {
     const temperature = calculateTemperature(attempt);
-    const antiPatterns = buildAntiPatterns(previousChoices, attempt);
+    // Include both previous choices AND all failed attempts from this generation session
+    const allChoicesToAvoid = [
+      ...previousChoices,
+      ...failedAttempts.flat()
+    ];
+    const antiPatterns = buildAntiPatterns(allChoicesToAvoid, attempt);
     
     console.log(`Choice generation attempt ${attempt + 1}/${MAX_DISTINCT_CHOICE_ATTEMPTS} (temperature: ${temperature.toFixed(2)})`);
+    if (failedAttempts.length > 0) {
+      console.log(`Avoiding ${failedAttempts.flat().length} previously generated choices from this session`);
+    }
     
     const candidate = await generateChoices(storyContext, lastFrameDataUrl, {
       temperature,
@@ -85,6 +94,7 @@ export const fetchDistinctChoices = async ({
     const qualityCheck = validateChoices(candidate);
     if (!qualityCheck.valid) {
       console.log(`✗ Quality check failed - ${qualityCheck.scores.filter(s => s.score < 50).length} low-quality choices`);
+      failedAttempts.push(candidate); // Track failed attempt
       continue; // Try again with higher temperature
     }
     
@@ -92,6 +102,7 @@ export const fetchDistinctChoices = async ({
     const isDiverse = checkChoiceDiversity(candidate);
     if (!isDiverse) {
       console.log('✗ Choices lack diversity - retrying');
+      failedAttempts.push(candidate); // Track failed attempt
       continue;
     }
     
@@ -125,8 +136,11 @@ export const fetchDistinctChoices = async ({
         fallbackChoices = candidate;
         console.log('↻ Partial match found - keeping as fallback');
       }
+      // Track this as a failed attempt since it has duplicates
+      failedAttempts.push(candidate);
     } else if (candidateIsRepeated) {
       console.log('✗ Exact duplicate detected - retrying with higher temperature');
+      failedAttempts.push(candidate); // Track failed attempt
     }
   }
 

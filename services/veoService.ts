@@ -86,7 +86,10 @@ export const generateChoices = async (
   // Build anti-pattern section
   let antiPatternSection = '';
   if (antiPatterns.length > 0) {
-    antiPatternSection = `\nAVOID these patterns (they were recently used):\n${antiPatterns.map(p => `- ${p}`).join('\n')}\n`;
+    antiPatternSection = `\n⛔ DO NOT REPEAT OR USE SIMILAR WORDING TO THESE (already generated/used):\n${antiPatterns.map(p => `- ${p}`).join('\n')}\n
+CRITICAL: You MUST generate choices that are COMPLETELY DIFFERENT from the above list.
+Do NOT use similar verbs, actions, or sentence structures as shown above.
+Be creative and think of entirely new approaches that haven't been suggested yet.\n`;
   }
   
   // Build choice type diversity section
