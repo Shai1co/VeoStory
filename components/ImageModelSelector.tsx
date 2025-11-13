@@ -1,25 +1,31 @@
 import React, { useState } from 'react';
-import { VideoModel, VideoProvider } from '../types';
-import { MODEL_METADATA, getModelsByProvider, getCostSymbol, getCostEstimate, PROVIDER_NAMES } from '../config/modelMetadata';
-import { isModelAvailable } from '../services/videoGenerationService';
+import { ImageModel, ImageProvider } from '../types';
+import { 
+  IMAGE_MODEL_METADATA, 
+  getImageModelsByProvider, 
+  getImageCostSymbol, 
+  getImageCostEstimate, 
+  IMAGE_PROVIDER_NAMES 
+} from '../config/imageModelMetadata';
 
-// For backward compatibility
-export type VeoModel = VideoModel;
-
-interface ModelSelectorProps {
-  selectedModel: VeoModel;
-  onModelChange: (model: VeoModel) => void;
+interface ImageModelSelectorProps {
+  selectedModel: ImageModel;
+  onModelChange: (model: ImageModel) => void;
   disabled?: boolean;
 }
 
-const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, onModelChange, disabled = false }) => {
-  const [expandedProviders, setExpandedProviders] = useState<Set<VideoProvider>>(
-    new Set(['veo']) // Veo expanded by default
+const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({ 
+  selectedModel, 
+  onModelChange, 
+  disabled = false 
+}) => {
+  const [expandedProviders, setExpandedProviders] = useState<Set<ImageProvider>>(
+    new Set(['replicate']) // Replicate expanded by default
   );
 
-  const modelsByProvider = getModelsByProvider();
+  const modelsByProvider = getImageModelsByProvider();
 
-  const toggleProvider = (provider: VideoProvider) => {
+  const toggleProvider = (provider: ImageProvider) => {
     const newExpanded = new Set(expandedProviders);
     if (newExpanded.has(provider)) {
       newExpanded.delete(provider);
@@ -29,67 +35,52 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, onModelCha
     setExpandedProviders(newExpanded);
   };
 
+  const isModelAvailable = (model: ImageModel): boolean => {
+    const metadata = IMAGE_MODEL_METADATA[model];
+    if (!metadata.requiresApiKey) return true;
+    return !!process.env[metadata.requiresApiKey];
+  };
+
   return (
     <div className="w-full">
       <label className="block text-sm font-medium text-slate-300 mb-3">
-        Video Generation Model
+        Image Generation Model
+        <span className="ml-2 text-xs text-slate-500">(for text-to-video)</span>
       </label>
 
       <div className="space-y-3">
-        {/* Google Veo */}
-        <ProviderSection
-          provider="veo"
-          displayName={PROVIDER_NAMES.veo}
-          models={modelsByProvider.veo}
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-          isExpanded={expandedProviders.has('veo')}
-          onToggle={() => toggleProvider('veo')}
-          disabled={disabled}
-        />
-
-        {/* Runway ML */}
-        <ProviderSection
-          provider="runway"
-          displayName={PROVIDER_NAMES.runway}
-          models={modelsByProvider.runway}
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-          isExpanded={expandedProviders.has('runway')}
-          onToggle={() => toggleProvider('runway')}
-          disabled={disabled}
-        />
-
-        {/* Stability AI */}
-        <ProviderSection
-          provider="stable-diffusion"
-          displayName={PROVIDER_NAMES['stable-diffusion']}
-          models={modelsByProvider['stable-diffusion']}
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-          isExpanded={expandedProviders.has('stable-diffusion')}
-          onToggle={() => toggleProvider('stable-diffusion')}
-          disabled={disabled}
-        />
-
         {/* Replicate */}
         <ProviderSection
           provider="replicate"
-          displayName={PROVIDER_NAMES.replicate}
+          displayName={IMAGE_PROVIDER_NAMES.replicate}
           models={modelsByProvider.replicate}
           selectedModel={selectedModel}
           onModelChange={onModelChange}
           isExpanded={expandedProviders.has('replicate')}
           onToggle={() => toggleProvider('replicate')}
           disabled={disabled}
+          isModelAvailable={isModelAvailable}
+        />
+
+        {/* Gemini */}
+        <ProviderSection
+          provider="gemini"
+          displayName={IMAGE_PROVIDER_NAMES.gemini}
+          models={modelsByProvider.gemini}
+          selectedModel={selectedModel}
+          onModelChange={onModelChange}
+          isExpanded={expandedProviders.has('gemini')}
+          onToggle={() => toggleProvider('gemini')}
+          disabled={disabled}
+          isModelAvailable={isModelAvailable}
         />
       </div>
 
       {/* Info tip */}
       <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
         <p className="text-xs text-slate-400">
-          <span className="text-sky-400 font-medium">💡 Tip:</span> Veo supports both text-to-video and image-to-video.
-          Replicate SVD provides cost-effective image-to-video continuation. Choose based on your needs!
+          <span className="text-sky-400 font-medium">💡 Tip:</span> This model generates the reference image when using text-to-video. 
+          For image-to-video, this setting is ignored.
         </p>
       </div>
     </div>
@@ -97,14 +88,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, onModelCha
 };
 
 interface ProviderSectionProps {
-  provider: VideoProvider;
+  provider: ImageProvider;
   displayName: string;
   models: any[];
-  selectedModel: VideoModel;
-  onModelChange: (model: VideoModel) => void;
+  selectedModel: ImageModel;
+  onModelChange: (model: ImageModel) => void;
   isExpanded: boolean;
   onToggle: () => void;
   disabled: boolean;
+  isModelAvailable: (model: ImageModel) => boolean;
 }
 
 const ProviderSection: React.FC<ProviderSectionProps> = ({
@@ -115,7 +107,8 @@ const ProviderSection: React.FC<ProviderSectionProps> = ({
   onModelChange,
   isExpanded,
   onToggle,
-  disabled
+  disabled,
+  isModelAvailable
 }) => {
   const hasSelectedModel = models.some(m => m.id === selectedModel);
 
@@ -155,6 +148,7 @@ const ProviderSection: React.FC<ProviderSectionProps> = ({
               isSelected={selectedModel === model.id}
               onSelect={() => !disabled && onModelChange(model.id)}
               disabled={disabled}
+              isAvailable={isModelAvailable(model.id)}
             />
           ))}
         </div>
@@ -168,11 +162,10 @@ interface ModelCardProps {
   isSelected: boolean;
   onSelect: () => void;
   disabled: boolean;
+  isAvailable: boolean;
 }
 
-const ModelCard: React.FC<ModelCardProps> = ({ model, isSelected, onSelect, disabled }) => {
-  const isAvailable = isModelAvailable(model.id);
-
+const ModelCard: React.FC<ModelCardProps> = ({ model, isSelected, onSelect, disabled, isAvailable }) => {
   return (
     <button
       onClick={onSelect}
@@ -193,7 +186,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, isSelected, onSelect, disa
             </h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-slate-400">{model.speed}</span>
-              <span className="text-xs text-amber-400">{getCostSymbol(model.costLevel)} {getCostEstimate(model.costLevel)}</span>
+              <span className="text-xs text-amber-400">{getImageCostSymbol(model.costLevel)} {getImageCostEstimate(model.costLevel)}</span>
             </div>
           </div>
         </div>
@@ -218,26 +211,15 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, isSelected, onSelect, disa
         {model.description}
       </p>
 
-      {/* Features */}
-      <div className="flex flex-wrap gap-1">
-        {model.features.slice(0, 3).map((feature: string, idx: number) => (
-          <span
-            key={idx}
-            className="text-xs px-2 py-0.5 bg-slate-700/50 text-slate-400 rounded"
-          >
-            {feature}
-          </span>
-        ))}
+      {/* Quality badge */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs px-2 py-0.5 bg-slate-700/50 text-slate-400 rounded">
+          {model.quality} Quality
+        </span>
       </div>
-
-      {/* Limitations */}
-      {model.limitations && model.limitations.length > 0 && (
-        <div className="mt-2 text-xs text-amber-400/80">
-          ⚠️ {model.limitations[0]}
-        </div>
-      )}
     </button>
   );
 };
 
-export default ModelSelector;
+export default ImageModelSelector;
+

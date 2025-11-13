@@ -3,7 +3,11 @@ import { extractBase64 } from '../utils/video';
 
 // Gemini API configuration
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-1.5-flash'; // Cheapest model for image generation
+const GEMINI_IMAGE_MODELS = [
+  'gemini-2.5-flash-image',  // Imagen 3 (Nano Banana) - best quality
+  'gemini-2.0-flash-image',  // Fallback
+  'gemini-1.5-flash'         // Legacy fallback
+] as const;
 
 interface GeminiImageRequest {
   contents: Array<{
@@ -34,8 +38,8 @@ interface GeminiImageResponse {
 }
 
 /**
- * Generate an image from a text prompt using Gemini 1.5 Flash
- * This is the cheapest Gemini model for image generation
+ * Generate an image from a text prompt using Gemini Imagen 3 (Nano Banana)
+ * Tries multiple models in order of preference for best quality
  */
 export async function generateGeminiImage(
   prompt: string,
@@ -72,44 +76,69 @@ export async function generateGeminiImage(
     }
   };
 
-  console.log('🎨 Generating image with Gemini 1.5 Flash:', { prompt, options });
+  let lastError: Error | null = null;
 
-  const response = await fetch(`${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody)
-  });
+  // Try models in order of preference
+  for (const modelName of GEMINI_IMAGE_MODELS) {
+    try {
+      console.log(`🎨 Generating image with ${modelName}:`, { prompt, options });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      `Gemini Image error: ${response.status} - ${errorData.error?.message || response.statusText}`
-    );
+      const response = await fetch(`${GEMINI_API_BASE}/models/${modelName}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = `${response.status} - ${errorData.error?.message || response.statusText}`;
+        
+        // If model not found, try next one
+        if (response.status === 404) {
+          console.warn(`Model ${modelName} not found, trying next...`);
+          lastError = new Error(errorMsg);
+          continue;
+        }
+        
+        throw new Error(`Gemini Image error: ${errorMsg}`);
+      }
+
+      const result: GeminiImageResponse = await response.json();
+      
+      if (!result.candidates || result.candidates.length === 0) {
+        throw new Error('Gemini image generation failed to return a result.');
+      }
+
+      const candidate = result.candidates[0];
+      if (!candidate.content.parts || candidate.content.parts.length === 0) {
+        throw new Error('Gemini image generation failed to return image data.');
+      }
+
+      // Look for inline data (base64 image)
+      const imagePart = candidate.content.parts.find(part => part.inlineData);
+      if (!imagePart?.inlineData) {
+        throw new Error('Gemini did not return image data in the expected format.');
+      }
+
+      const { mimeType, data } = imagePart.inlineData;
+      
+      console.log(`✅ Image generated successfully with ${modelName}`);
+      
+      // Return as data URL
+      return `data:${mimeType};base64,${data}`;
+      
+    } catch (error) {
+      console.warn(`Failed with ${modelName}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      // Try next model
+      continue;
+    }
   }
 
-  const result: GeminiImageResponse = await response.json();
-  
-  if (!result.candidates || result.candidates.length === 0) {
-    throw new Error('Gemini image generation failed to return a result.');
-  }
-
-  const candidate = result.candidates[0];
-  if (!candidate.content.parts || candidate.content.parts.length === 0) {
-    throw new Error('Gemini image generation failed to return image data.');
-  }
-
-  // Look for inline data (base64 image)
-  const imagePart = candidate.content.parts.find(part => part.inlineData);
-  if (!imagePart?.inlineData) {
-    throw new Error('Gemini did not return image data in the expected format.');
-  }
-
-  const { mimeType, data } = imagePart.inlineData;
-  
-  // Return as data URL
-  return `data:${mimeType};base64,${data}`;
+  // All models failed
+  throw lastError || new Error('Failed to generate image with all available Gemini models');
 }
 
 /**

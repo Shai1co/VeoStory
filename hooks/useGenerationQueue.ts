@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { GenerationQueueTask, GenerationTaskStatus, GenerationIntent, VideoModel } from '../types';
+import { GenerationQueueTask, GenerationTaskStatus, GenerationIntent, VideoModel, ImageModel } from '../types';
 import { generateVideo as generateVideoUnified, VideoGenerationResponse } from '../services/videoGenerationService';
 import {
   deleteGenerationTask,
@@ -13,6 +13,7 @@ interface EnqueueGenerationTaskInput {
   prompt: string;
   model: VideoModel;
   imageData?: string | null;
+  imageModel?: ImageModel;
   intent: GenerationIntent;
 }
 
@@ -124,6 +125,7 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
       prompt: input.prompt,
       model: input.model,
       imageData: normalizeImageData(input.imageData),
+      imageModel: input.imageModel,
       intent: ensureIntent(input.intent),
       status: 'queued',
       createdAt: now(),
@@ -189,6 +191,7 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
         prompt: task.prompt,
         model: task.model,
         imageData: task.imageData ?? undefined,
+        imageModel: task.imageModel,
       });
 
       if (shouldIgnoreResult(task.id, cancelledTaskIdsRef)) {

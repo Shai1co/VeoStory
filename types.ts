@@ -32,6 +32,7 @@ export interface GenerationQueueTask {
   prompt: string;
   model: VideoModel;
   imageData?: string | null;
+  imageModel?: ImageModel; // Which model to use for text-to-image generation
   intent: GenerationIntent;
   status: GenerationTaskStatus;
   createdAt: number;
@@ -63,16 +64,36 @@ export type VideoModel =
   | 'runway-gen-3-alpha'
   | 'runway-gen-4-turbo'
   | 'stable-video-diffusion-img2vid'
-  | 'replicate-svd'
-  | 'replicate-animatediff'
-  | 'replicate-hotshot'
-  | 'replicate-hailuo-02'
-  | 'replicate-seedance-lite'
-  | 'replicate-seedance-pro-fast'
-  | 'replicate-seedance-pro';
+  | 'replicate-wan-2.5-i2v'
+  | 'replicate-wan-2.5-i2v-fast'
+  | 'replicate-veo-3.1'
+  | 'replicate-veo-3.1-fast'
+  | 'replicate-veo-3'
+  | 'replicate-veo-3-fast';
+
+// Image generation model types (for text-to-image before animating)
+export type ImageModel =
+  | 'flux-schnell'
+  | 'gemini-imagen-3';
 
 // Provider categories
 export type VideoProvider = 'veo' | 'runway' | 'stable-diffusion' | 'replicate';
+
+// Image provider categories
+export type ImageProvider = 'replicate' | 'gemini';
+
+// Image model metadata for UI display
+export interface ImageModelMetadata {
+  id: ImageModel;
+  provider: ImageProvider;
+  name: string;
+  description: string;
+  icon: string;
+  speed: string;
+  quality: string;
+  costLevel: number;
+  requiresApiKey?: string;
+}
 
 // Model metadata for UI display and configuration
 export interface VideoModelMetadata {
@@ -93,6 +114,8 @@ export interface VideoModelMetadata {
 export enum GameState {
   START = 'START',
   SELECTING_API_KEY = 'SELECTING_API_KEY',
+  GENERATING_IMAGE = 'GENERATING_IMAGE', // Generating initial reference image
+  IMAGE_PREVIEW = 'IMAGE_PREVIEW', // Showing generated image for approval
   GENERATING_VIDEO = 'GENERATING_VIDEO',
   GENERATING_CHOICES = 'GENERATING_CHOICES',
   PLAYING = 'PLAYING', // Actively playing the latest video

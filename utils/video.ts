@@ -2,6 +2,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import coreJsUrl from '@ffmpeg/core?url';
 import coreWasmUrl from '@ffmpeg/core/wasm?url';
 import { StoredVideoSegment } from '../types';
+import { ExportResolution } from '../components/ExportOptionsDialog';
 
 let ffmpegInstancePromise: Promise<any> | null = null;
 
@@ -35,7 +36,25 @@ const getFFmpegInstance = (): Promise<any> => {
     return ffmpegInstancePromise;
 };
 
-export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
+// Helper function to get resolution dimensions and scale filter
+const getResolutionScale = (resolution: ExportResolution): string | null => {
+    switch (resolution) {
+        case 'original':
+            return null; // No scaling
+        case '720p':
+            return 'scale=1280:720';
+        case '1080p':
+            return 'scale=1920:1080';
+        case '1440p':
+            return 'scale=2560:1440';
+        case '4k':
+            return 'scale=3840:2160';
+        default:
+            return null;
+    }
+};
+
+export const combineVideos = async (videoBlobs: Blob[], resolution: ExportResolution = 'original'): Promise<Blob> => {
     const ffmpegInstance = await getFFmpegInstance();
 
     const fileNames: string[] = [];
@@ -53,19 +72,49 @@ export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
     // Use exec to run the command. Arguments are passed as an array.
     // Add -y to force overwrite if a previous run left artifacts in the FS
     let outputData: Uint8Array | null = null;
-    try {
-        await ffmpegInstance.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
-        outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
-        if (!outputData || outputData.length === 0) {
-            throw new Error('Empty output after stream copy concat');
+    const scaleFilter = getResolutionScale(resolution);
+    
+    // If scaling is needed, skip stream copy and go straight to re-encoding
+    if (scaleFilter === null) {
+        try {
+            await ffmpegInstance.exec(['-y', '-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c', 'copy', 'output.mp4']);
+            outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
+            if (!outputData || outputData.length === 0) {
+                throw new Error('Empty output after stream copy concat');
+            }
+        } catch (primaryError) {
+            console.warn('[FFMPEG] Concat with -c copy failed, falling back to re-encode:', primaryError);
+            // Fallback without scaling
+            const inputArgs = fileNames.flatMap((f) => ['-i', f]);
+            const streams = fileNames.map((_, idx) => `[${idx}:v:0]`).join('');
+            const filter = `${streams}concat=n=${fileNames.length}:v=1:a=0[v]`;
+            const args = [
+                '-y',
+                ...inputArgs,
+                '-filter_complex',
+                filter,
+                '-map',
+                '[v]',
+                '-c:v',
+                'mpeg4',
+                '-r',
+                '30',
+                '-pix_fmt',
+                'yuv420p',
+                'output.mp4',
+            ];
+            await ffmpegInstance.exec(args);
+            outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
+            if (!outputData || outputData.length === 0) {
+                throw new Error('Empty output after re-encode concat');
+            }
         }
-    } catch (primaryError) {
-        console.warn('[FFMPEG] Concat with -c copy failed, falling back to re-encode:', primaryError);
-        // Fallback: re-encode using concat filter, video-only
-        // Build inputs
+    } else {
+        // Re-encode with scaling
         const inputArgs = fileNames.flatMap((f) => ['-i', f]);
-        const streams = fileNames.map((_, idx) => `[${idx}:v:0]`).join('');
-        const filter = `${streams}concat=n=${fileNames.length}:v=1:a=0[v]`;
+        const streams = fileNames.map((_, idx) => `[${idx}:v:0]${scaleFilter}[v${idx}]`).join(';');
+        const concatStreams = fileNames.map((_, idx) => `[v${idx}]`).join('');
+        const filter = `${streams};${concatStreams}concat=n=${fileNames.length}:v=1:a=0[v]`;
         const args = [
             '-y',
             ...inputArgs,
@@ -73,7 +122,6 @@ export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
             filter,
             '-map',
             '[v]',
-            // Choose a broadly supported output profile without requiring GPL encoders
             '-c:v',
             'mpeg4',
             '-r',
@@ -85,7 +133,7 @@ export const combineVideos = async (videoBlobs: Blob[]): Promise<Blob> => {
         await ffmpegInstance.exec(args);
         outputData = (await ffmpegInstance.readFile('output.mp4')) as Uint8Array;
         if (!outputData || outputData.length === 0) {
-            throw new Error('Empty output after re-encode concat');
+            throw new Error('Empty output after re-encode with scaling');
         }
     }
 
@@ -126,8 +174,32 @@ const HIGHLIGHT_COLOR = '0x38bdf8'; // Sky blue from theme
 const TEXT_COLOR = 'white';
 const BOX_COLOR = '0x1e293b@0.85'; // Semi-transparent dark background
 
-export const combineVideosWithChoiceOverlays = async (segments: StoredVideoSegment[]): Promise<Blob> => {
+// Load font file into FFmpeg virtual filesystem
+let fontLoaded = false;
+const loadFont = async (ffmpegInstance: any): Promise<void> => {
+    if (fontLoaded) return;
+    
+    try {
+        // Use a freely available font from Google Fonts CDN
+        const fontUrl = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5WZLCzYlKw.ttf';
+        const response = await fetch(fontUrl);
+        const fontData = await response.arrayBuffer();
+        await ffmpegInstance.writeFile('font.ttf', new Uint8Array(fontData));
+        fontLoaded = true;
+        console.log('[FFMPEG] Font loaded successfully');
+    } catch (error) {
+        console.error('[FFMPEG] Failed to load font:', error);
+        throw new Error('Failed to load font for video overlays');
+    }
+};
+
+export const combineVideosWithChoiceOverlays = async (segments: StoredVideoSegment[], resolution: ExportResolution = 'original'): Promise<Blob> => {
     const ffmpegInstance = await getFFmpegInstance();
+    
+    // Load font file for text overlays
+    await loadFont(ffmpegInstance);
+    
+    const scaleFilter = getResolutionScale(resolution);
 
     const processedFileNames: string[] = [];
     
@@ -143,17 +215,52 @@ export const combineVideosWithChoiceOverlays = async (segments: StoredVideoSegme
         // Check if this segment has choices and a selection
         if (segment.choices && segment.choices.length > 0 && segment.selectedChoice) {
             // Process video with choice overlays
-            await processVideoWithChoiceOverlay(
-                ffmpegInstance,
-                inputFileName,
-                outputFileName,
-                segment.choices,
-                segment.selectedChoice
-            );
-            processedFileNames.push(outputFileName);
+            try {
+                await processVideoWithChoiceOverlay(
+                    ffmpegInstance,
+                    inputFileName,
+                    outputFileName,
+                    segment.choices,
+                    segment.selectedChoice,
+                    scaleFilter
+                );
+                // Verify the output file was created
+                try {
+                    await ffmpegInstance.readFile(outputFileName);
+                    processedFileNames.push(outputFileName);
+                } catch (e) {
+                    // Output file doesn't exist, fallback to input
+                    console.warn(`Failed to read processed file for segment ${i}, using original`);
+                    processedFileNames.push(inputFileName);
+                }
+            } catch (error) {
+                // Processing failed, fallback to original video
+                console.warn(`Failed to process segment ${i} with overlays:`, error);
+                processedFileNames.push(inputFileName);
+            }
         } else {
-            // No choices, just use the original video
-            processedFileNames.push(inputFileName);
+            // No choices - if scaling is needed, apply it; otherwise use original
+            if (scaleFilter) {
+                try {
+                    const args = [
+                        '-y',
+                        '-i', inputFileName,
+                        '-vf', scaleFilter,
+                        '-c:v', 'mpeg4',
+                        '-r', '30',
+                        '-pix_fmt', 'yuv420p',
+                        outputFileName
+                    ];
+                    await ffmpegInstance.exec(args);
+                    await ffmpegInstance.readFile(outputFileName);
+                    processedFileNames.push(outputFileName);
+                } catch (error) {
+                    console.warn(`Failed to scale segment ${i} without overlays:`, error);
+                    processedFileNames.push(inputFileName);
+                }
+            } else {
+                processedFileNames.push(inputFileName);
+            }
         }
     }
     
@@ -233,7 +340,8 @@ async function processVideoWithChoiceOverlay(
     inputFileName: string,
     outputFileName: string,
     choices: string[],
-    selectedChoice: string
+    selectedChoice: string,
+    scaleFilter: string | null = null
 ): Promise<void> {
     // Escape text for FFmpeg drawtext filter
     const escapeText = (text: string): string => {
@@ -261,17 +369,20 @@ async function processVideoWithChoiceOverlay(
     // Step 2: Add choice text overlays
     let currentLabel = 'extended';
     
-    // Calculate video dimensions and positioning
-    // We'll position choices in a grid at the bottom third of the video
-    const videoWidth = 1920; // Assuming HD video, will be scaled by FFmpeg
-    const videoHeight = 1080;
-    const choiceAreaTop = Math.floor(videoHeight * 0.65); // Start at 65% down
-    
-    // Adjust layout based on number of choices
+    // Use actual pixel dimensions (assuming 1280x720 base, will scale if needed)
+    // FFmpeg.wasm has issues with complex expressions, so use simpler approach
     const numChoices = Math.min(choices.length, 3);
-    const totalPadding = CHOICE_BOX_PADDING * (numChoices + 1);
-    const choiceWidth = Math.floor((videoWidth - totalPadding) / numChoices);
-    const choiceHeight = 120;
+    
+    // Calculate box dimensions in pixels for 1280x720
+    const baseWidth = 1280;
+    const baseHeight = 720;
+    const boxWidthPercent = 0.28;
+    const boxHeightPercent = 0.12;
+    const paddingPercent = 0.02;
+    
+    const boxWidthPx = Math.floor(baseWidth * boxWidthPercent);
+    const boxHeightPx = Math.floor(baseHeight * boxHeightPercent);
+    const paddingPx = Math.floor(baseWidth * paddingPercent);
     
     for (let i = 0; i < choices.length && i < 3; i++) {
         const choice = choices[i];
@@ -279,9 +390,11 @@ async function processVideoWithChoiceOverlay(
         const escapedText = escapeText(truncatedChoice);
         const isSelected = i === selectedIndex;
         
-        // Calculate position (up to 3 choices in a row)
-        const xPos = CHOICE_BOX_PADDING + (i * (choiceWidth + CHOICE_BOX_PADDING));
-        const yPos = choiceAreaTop;
+        // Calculate positions in pixels
+        const totalWidth = numChoices * boxWidthPx + (numChoices + 1) * paddingPx;
+        const startX = Math.floor((baseWidth - totalWidth) / 2);
+        const xPos = startX + paddingPx + i * (boxWidthPx + paddingPx);
+        const yPos = Math.floor(baseHeight * 0.75);
         
         // Stagger the appearance
         const appearTime = i * CHOICE_STAGGER_DELAY_SECONDS;
@@ -290,24 +403,32 @@ async function processVideoWithChoiceOverlay(
         const nextLabel = `choice${i}`;
         
         // Draw semi-transparent background box for choice
-        filterChain += `;[${currentLabel}]drawbox=x=${xPos}:y=${yPos}:w=${choiceWidth}:h=${choiceHeight}:color=${BOX_COLOR}:t=fill:enable='between(t,${appearTime},${disappearTime})'[${nextLabel}_box]`;
+        filterChain += `;[${currentLabel}]drawbox=x=${xPos}:y=${yPos}:w=${boxWidthPx}:h=${boxHeightPx}:color=${BOX_COLOR}:t=fill:enable='between(t,${appearTime},${disappearTime})'[${nextLabel}_box]`;
         
-        // Draw choice text
-        const textX = xPos + Math.floor(choiceWidth / 2);
-        const textY = yPos + Math.floor(choiceHeight / 2);
+        // Draw choice text (centered in the box)
+        const textX = xPos + Math.floor(boxWidthPx / 2);
+        const textY = yPos + Math.floor(boxHeightPx / 2);
+        const fontSize = Math.floor(baseHeight * 0.025); // 2.5% of video height
         
-        filterChain += `;[${nextLabel}_box]drawtext=text='${escapedText}':fontsize=${CHOICE_FONT_SIZE}:fontcolor=${TEXT_COLOR}:x=${textX}-text_w/2:y=${textY}-text_h/2:enable='between(t,${appearTime},${disappearTime})'[${nextLabel}]`;
+        filterChain += `;[${nextLabel}_box]drawtext=fontfile=font.ttf:text='${escapedText}':fontsize=${fontSize}:fontcolor=${TEXT_COLOR}:x=${textX}-text_w/2:y=${textY}-text_h/2:enable='between(t,${appearTime},${disappearTime})'[${nextLabel}]`;
         
         // If this is the selected choice, add highlight border after 3 seconds
         if (isSelected) {
             const highlightLabel = `${nextLabel}_highlight`;
             const borderThickness = 4;
             // Draw highlight border
-            filterChain += `;[${nextLabel}]drawbox=x=${xPos}:y=${yPos}:w=${choiceWidth}:h=${choiceHeight}:color=${HIGHLIGHT_COLOR}:t=${borderThickness}:enable='between(t,${CHOICE_DISPLAY_DURATION_SECONDS},${disappearTime})'[${highlightLabel}]`;
+            filterChain += `;[${nextLabel}]drawbox=x=${xPos}:y=${yPos}:w=${boxWidthPx}:h=${boxHeightPx}:color=${HIGHLIGHT_COLOR}:t=${borderThickness}:enable='between(t,${CHOICE_DISPLAY_DURATION_SECONDS},${disappearTime})'[${highlightLabel}]`;
             currentLabel = highlightLabel;
         } else {
             currentLabel = nextLabel;
         }
+    }
+    
+    // Apply scaling if needed
+    if (scaleFilter) {
+        const finalLabel = 'scaled';
+        filterChain += `;[${currentLabel}]${scaleFilter}[${finalLabel}]`;
+        currentLabel = finalLabel;
     }
     
     // Execute FFmpeg command

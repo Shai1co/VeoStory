@@ -2,17 +2,19 @@
 // Fetch the latest version hashes for Replicate models
 
 const models = [
-  { owner: 'stability-ai', name: 'stable-video-diffusion-img2vid-xt', constant: 'SVD_MODEL_VERSION' },
-  { owner: 'lucataco', name: 'animate-diff', constant: 'ANIMATEDIFF_VERSION' },
-  { owner: 'lucataco', name: 'hotshot-xl', constant: 'HOTSHOT_VERSION' },
-  { owner: 'minimax', name: 'hailuo-02', constant: 'HAILUO_02_VERSION' },
-  { owner: 'bytedance', name: 'seedance-1-lite', constant: 'SEEDANCE_LITE_VERSION' },
-  { owner: 'bytedance', name: 'seedance-1-pro-fast', constant: 'SEEDANCE_PRO_FAST_VERSION' },
-  { owner: 'bytedance', name: 'seedance-1-pro', constant: 'SEEDANCE_PRO_VERSION' },
-  { owner: 'black-forest-labs', name: 'flux-schnell', constant: 'FLUX_SCHNELL_VERSION' }
+  // Keep FLUX for text-to-image generation
+  { owner: 'black-forest-labs', name: 'flux-schnell', constant: 'FLUX_SCHNELL_VERSION' },
+  // New Wan models with audio
+  { owner: 'wan-video', name: 'wan-2.5-i2v', constant: 'WAN_2_5_I2V_VERSION' },
+  { owner: 'wan-video', name: 'wan-2.5-i2v-fast', constant: 'WAN_2_5_I2V_FAST_VERSION' },
+  // New Veo models on Replicate with audio
+  { owner: 'google', name: 'veo-3.1', constant: 'VEO_3_1_VERSION' },
+  { owner: 'google', name: 'veo-3.1-fast', constant: 'VEO_3_1_FAST_VERSION' },
+  { owner: 'google', name: 'veo-3', constant: 'VEO_3_VERSION' },
+  { owner: 'google', name: 'veo-3-fast', constant: 'VEO_3_FAST_VERSION' }
 ];
 
-async function fetchVersionHash(owner, name) {
+async function fetchModelInfo(owner, name) {
   const url = `https://api.replicate.com/v1/models/${owner}/${name}`;
   
   // Note: API key is optional for public models, but recommended for rate limits
@@ -29,7 +31,20 @@ async function fetchVersionHash(owner, name) {
     }
     
     const data = await response.json();
-    return data.latest_version?.id || null;
+    const versionHash = data.latest_version?.id || null;
+    
+    // Try to get pricing info from the latest version
+    let pricing = null;
+    if (data.latest_version?.cog_version) {
+      // Pricing is often shown in run_count or cost estimates
+      const avgRunTime = data.latest_version?.openapi_schema?.info?.['x-replicate-avg-run-time'];
+      pricing = {
+        avgRunTime,
+        description: data.description
+      };
+    }
+    
+    return { hash: versionHash, pricing };
   } catch (error) {
     console.error(`❌ Error fetching ${owner}/${name}:`, error.message);
     return null;
@@ -37,17 +52,17 @@ async function fetchVersionHash(owner, name) {
 }
 
 async function main() {
-  console.log('🔍 Fetching latest Replicate model versions...\n');
+  console.log('🔍 Fetching latest Replicate model versions and pricing...\n');
   
   const results = [];
   
   for (const model of models) {
     process.stdout.write(`Fetching ${model.owner}/${model.name}... `);
-    const hash = await fetchVersionHash(model.owner, model.name);
+    const info = await fetchModelInfo(model.owner, model.name);
     
-    if (hash) {
-      console.log(`✅ ${hash.substring(0, 12)}...`);
-      results.push({ ...model, hash });
+    if (info && info.hash) {
+      console.log(`✅ ${info.hash.substring(0, 12)}...`);
+      results.push({ ...model, ...info });
     } else {
       console.log('❌ Failed');
     }
@@ -58,11 +73,30 @@ async function main() {
   
   for (const result of results) {
     if (result.hash) {
+      console.log(`// ${result.owner}/${result.name}`);
+      if (result.pricing?.avgRunTime) {
+        console.log(`// Avg runtime: ${result.pricing.avgRunTime}s`);
+      }
       console.log(`const ${result.constant} = '${result.hash}';`);
+      console.log('');
     }
   }
   
-  console.log('\n✅ Done!');
+  console.log('\n💰 Pricing Information:\n');
+  for (const result of results) {
+    if (result.hash) {
+      console.log(`${result.owner}/${result.name}:`);
+      if (result.pricing?.description) {
+        console.log(`  Description: ${result.pricing.description}`);
+      }
+      if (result.pricing?.avgRunTime) {
+        console.log(`  Avg Runtime: ${result.pricing.avgRunTime}s`);
+      }
+      console.log('');
+    }
+  }
+  
+  console.log('✅ Done! Visit model pages on replicate.com for exact pricing.');
 }
 
 main().catch(console.error);

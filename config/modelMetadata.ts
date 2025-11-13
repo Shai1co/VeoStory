@@ -78,109 +78,88 @@ export const MODEL_METADATA: Record<VideoModel, VideoModelMetadata> = {
     estimatedSeconds: 55
   },
   
-  'replicate-svd': {
-    id: 'replicate-svd',
+  'replicate-wan-2.5-i2v': {
+    id: 'replicate-wan-2.5-i2v',
     provider: 'replicate',
-    name: 'Replicate SVD',
-    description: 'Stable Video Diffusion via Replicate (~55-85s total: 15s image + 40-70s video)',
-    icon: '🔄',
-    speed: '~55-85 seconds',
-    quality: 'Good',
-    costLevel: 1,
-    features: ['Text-to-video (via Stability AI/Placeholder)', 'Image-to-video', '576p resolution', 'Smooth motion', '25 frames', 'Reliable API'],
-    limitations: ['~1 second videos', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY',
-    estimatedSeconds: 70
-  },
-
-  'replicate-animatediff': {
-    id: 'replicate-animatediff',
-    provider: 'replicate',
-    name: 'AnimateDiff',
-    description: 'High-quality motion animation (~40s generation)',
-    icon: '✨',
-    speed: '~40 seconds',
-    quality: 'Excellent',
-    costLevel: 1,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', '512x512 resolution', 'Smooth animations', '2-4 second videos', 'Creative motion'],
-    limitations: ['Square format', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY',
-    estimatedSeconds: 40
-  },
-
-  'replicate-hotshot': {
-    id: 'replicate-hotshot',
-    provider: 'replicate',
-    name: 'HotShot',
-    description: 'Ultra-fast GIF-style animations (~25s generation)',
-    icon: '⚡',
-    speed: '~25 seconds',
-    quality: 'Good',
-    costLevel: 1,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', 'GIF-style loops', '1-2 second videos', 'Fast iterations', 'Artistic styles'],
-    limitations: ['Very short duration', 'Two-step process for text-to-video'],
-    requiresApiKey: 'REPLICATE_API_KEY',
-    estimatedSeconds: 25
-  },
-
-  'replicate-hailuo-02': {
-    id: 'replicate-hailuo-02',
-    provider: 'replicate',
-    name: 'Hailuo 02 Standard',
-    description: 'High-quality physics simulation at 768p (6-10s videos)',
-    icon: '🎬',
+    name: 'Wan 2.5 I2V',
+    description: 'Alibaba Wan 2.5 with background audio generation (~60-90s)',
+    icon: '🎵',
     speed: '~60-90 seconds',
     quality: 'Excellent',
     costLevel: 2,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', '768p resolution', '6-10 second videos', 'Realistic physics', 'Complex motion'],
-    limitations: ['Two-step process for text-to-video', 'Higher cost'],
+    features: ['Image-to-video', '720p resolution', 'Background audio', '5-8 second videos', 'High quality'],
     requiresApiKey: 'REPLICATE_API_KEY',
     estimatedSeconds: 75
   },
 
-  'replicate-seedance-lite': {
-    id: 'replicate-seedance-lite',
+  'replicate-wan-2.5-i2v-fast': {
+    id: 'replicate-wan-2.5-i2v-fast',
     provider: 'replicate',
-    name: 'Seedance Lite',
-    description: 'Fast cinematic video generation at 480p (5-10s videos)',
-    icon: '🎥',
+    name: 'Wan 2.5 I2V Fast',
+    description: 'Wan 2.5 optimized for speed with audio (~40-60s)',
+    icon: '⚡',
     speed: '~40-60 seconds',
-    quality: 'Good',
+    quality: 'Very Good',
     costLevel: 1,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', '480p resolution', '5-10 second videos', 'Multi-shot support', 'Cinematic quality'],
-    limitations: ['Lower resolution', 'Two-step process for text-to-video'],
+    features: ['Image-to-video', '720p resolution', 'Background audio', '5-8 second videos', 'Fast generation'],
     requiresApiKey: 'REPLICATE_API_KEY',
     estimatedSeconds: 50
   },
 
-  'replicate-seedance-pro-fast': {
-    id: 'replicate-seedance-pro-fast',
+  'replicate-veo-3.1': {
+    id: 'replicate-veo-3.1',
     provider: 'replicate',
-    name: 'Seedance Pro Fast',
-    description: 'Faster pro-quality generation at 720p (5-10s videos)',
-    icon: '⚡',
-    speed: '~50-70 seconds',
-    quality: 'Very Good',
-    costLevel: 2,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', '720p resolution', '5-10 second videos', 'Fast inference', 'Cinematic quality'],
-    limitations: ['Two-step process for text-to-video', 'Moderate cost'],
-    requiresApiKey: 'REPLICATE_API_KEY',
-    estimatedSeconds: 60
-  },
-
-  'replicate-seedance-pro': {
-    id: 'replicate-seedance-pro',
-    provider: 'replicate',
-    name: 'Seedance Pro',
-    description: 'Premium cinematic quality at 720p (5-10s videos)',
-    icon: '🎯',
-    speed: '~70-100 seconds',
+    name: 'Veo 3.1 (Replicate)',
+    description: 'Google Veo 3.1 via Replicate with context-aware audio (~120-180s)',
+    icon: '✨',
+    speed: '~2-3 minutes',
     quality: 'Excellent',
     costLevel: 3,
-    features: ['Text-to-video (via FLUX)', 'Image-to-video', '720p resolution', '5-10 second videos', 'Multi-shot support', 'Premium quality'],
-    limitations: ['Slower generation', 'Higher cost', 'Two-step process for text-to-video'],
+    features: ['Text-to-video', 'Image-to-video', '720p resolution', 'Context-aware audio', 'Reference image support', 'Last frame support'],
     requiresApiKey: 'REPLICATE_API_KEY',
-    estimatedSeconds: 85
+    estimatedSeconds: 150
+  },
+
+  'replicate-veo-3.1-fast': {
+    id: 'replicate-veo-3.1-fast',
+    provider: 'replicate',
+    name: 'Veo 3.1 Fast (Replicate)',
+    description: 'Google Veo 3.1 Fast via Replicate with audio (~60-90s)',
+    icon: '⚡',
+    speed: '~1-1.5 minutes',
+    quality: 'Very Good',
+    costLevel: 2,
+    features: ['Text-to-video', 'Image-to-video', '720p resolution', 'Context-aware audio', 'Last frame support'],
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 75
+  },
+
+  'replicate-veo-3': {
+    id: 'replicate-veo-3',
+    provider: 'replicate',
+    name: 'Veo 3 (Replicate)',
+    description: 'Google Veo 3 via Replicate with audio generation (~120-180s)',
+    icon: '🎬',
+    speed: '~2-3 minutes',
+    quality: 'Excellent',
+    costLevel: 3,
+    features: ['Text-to-video', 'Image-to-video', '720p resolution', 'Audio generation', 'Cinematic quality'],
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 150
+  },
+
+  'replicate-veo-3-fast': {
+    id: 'replicate-veo-3-fast',
+    provider: 'replicate',
+    name: 'Veo 3 Fast (Replicate)',
+    description: 'Google Veo 3 Fast via Replicate with audio (~60-90s)',
+    icon: '🚀',
+    speed: '~1-1.5 minutes',
+    quality: 'Very Good',
+    costLevel: 2,
+    features: ['Text-to-video', 'Image-to-video', '720p resolution', 'Audio generation', 'Fast generation'],
+    requiresApiKey: 'REPLICATE_API_KEY',
+    estimatedSeconds: 75
   }
 };
 
@@ -201,13 +180,12 @@ export function getModelsByProvider() {
       MODEL_METADATA['stable-video-diffusion-img2vid']
     ],
     replicate: [
-      MODEL_METADATA['replicate-svd'],
-      MODEL_METADATA['replicate-animatediff'],
-      MODEL_METADATA['replicate-hotshot'],
-      MODEL_METADATA['replicate-hailuo-02'],
-      MODEL_METADATA['replicate-seedance-lite'],
-      MODEL_METADATA['replicate-seedance-pro-fast'],
-      MODEL_METADATA['replicate-seedance-pro']
+      MODEL_METADATA['replicate-wan-2.5-i2v'],
+      MODEL_METADATA['replicate-wan-2.5-i2v-fast'],
+      MODEL_METADATA['replicate-veo-3.1'],
+      MODEL_METADATA['replicate-veo-3.1-fast'],
+      MODEL_METADATA['replicate-veo-3'],
+      MODEL_METADATA['replicate-veo-3-fast']
     ]
   };
 }
@@ -217,6 +195,26 @@ export function getModelsByProvider() {
  */
 export function getCostSymbol(costLevel: number): string {
   return '$'.repeat(costLevel);
+}
+
+/**
+ * Get approximate cost estimate based on cost level
+ * These estimates are based on typical Replicate pricing as of Nov 2024
+ * Actual costs may vary based on runtime and hardware
+ */
+export function getCostEstimate(costLevel: number): string {
+  switch (costLevel) {
+    case 1:
+      return '~$0.04-0.06';
+    case 2:
+      return '~$0.08-0.15';
+    case 3:
+      return '~$0.20-0.30';
+    case 4:
+      return '~$0.40-0.50';
+    default:
+      return '~$0.10';
+  }
 }
 
 /**

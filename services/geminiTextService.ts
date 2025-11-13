@@ -144,6 +144,88 @@ export async function getRandomPrompt(): Promise<string> {
 }
 
 /**
+ * Expand an existing prompt to make it more detailed and robust
+ */
+export async function expandPrompt(existingPrompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const configuredModel = process.env.GEMINI_TEXT_MODEL?.trim();
+  const modelCandidates = [
+    ...(configuredModel ? [configuredModel] : []),
+    ...DEFAULT_GEMINI_TEXT_MODELS
+  ].filter((modelId, index, list) => modelId && list.indexOf(modelId) === index);
+  const notFoundErrors: GeminiModelNotFoundError[] = [];
+  let lastError: Error | null = null;
+
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set in environment variables');
+  }
+
+  const systemPrompt = `You are a creative writing assistant helping to expand and enhance visual storytelling prompts. 
+The user has written: "${existingPrompt}"
+
+Your task is to expand this prompt into a more detailed, vivid, and cinematically rich description suitable for AI video generation. 
+
+Guidelines:
+- Keep the core concept and intent of the original prompt
+- Add more sensory details, atmosphere, mood, and visual elements
+- Include camera angles, lighting, movement, or cinematic details where appropriate
+- Make it more specific and descriptive while maintaining coherence
+- Keep it CONCISE - aim for 2-3 sentences, similar in length to the original but with richer detail
+- Write in a flowing narrative style, not as a list
+- Do NOT add quotes around your response
+
+Respond with ONLY the expanded prompt, nothing else.`;
+
+  const requestBody: GeminiTextRequest = {
+    contents: [
+      {
+        parts: [
+          {
+            text: systemPrompt
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.8, // Moderate creativity
+      topK: 40,
+      topP: 0.9,
+      maxOutputTokens: MAX_PROMPT_OUTPUT_TOKENS // Keep it concise like random prompts
+    }
+  };
+
+  console.log('✨ Expanding prompt with Gemini...');
+
+  for (const modelId of modelCandidates) {
+    try {
+      const response = await invokeGemini(apiKey, modelId, requestBody);
+      console.log(`✅ Expanded prompt with Gemini model ${modelId}:`, response);
+      return response;
+    } catch (error) {
+      if (error instanceof GeminiModelNotFoundError) {
+        notFoundErrors.push(error);
+        continue;
+      }
+      lastError = error instanceof Error ? error : new Error(String(error));
+      break;
+    }
+  }
+
+  if (notFoundErrors.length > 0) {
+    const attemptedModels = notFoundErrors.map((error) => error.modelId).join(', ');
+    throw new Error(
+      `Gemini API could not find any of the requested models: ${attemptedModels}`
+    );
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error('Failed to expand prompt with Gemini');
+}
+
+/**
  * Check if Gemini Text API is available
  */
 export function isGeminiTextAvailable(): boolean {

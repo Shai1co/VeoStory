@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MODEL_METADATA } from '../config/modelMetadata';
-import { VideoModel } from '../types';
+import { VideoModel, ImageModel } from '../types';
 import ModelSelector from './ModelSelector';
+import ImageModelSelector from './ImageModelSelector';
 
 interface StoryModelControlsProps {
   selectedModel: VideoModel;
   onModelChange: (model: VideoModel) => void;
+  selectedImageModel: ImageModel;
+  onImageModelChange: (model: ImageModel) => void;
   pendingGenerationCount: number;
   disabled?: boolean;
 }
@@ -15,6 +18,8 @@ const CLOSE_DELAY_MS = 150;
 const StoryModelControls: React.FC<StoryModelControlsProps> = ({
   selectedModel,
   onModelChange,
+  selectedImageModel,
+  onImageModelChange,
   pendingGenerationCount,
   disabled = false,
 }) => {
@@ -50,6 +55,11 @@ const StoryModelControls: React.FC<StoryModelControlsProps> = ({
 
   const handleModelChange = (model: VideoModel) => {
     onModelChange(model);
+    window.setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS);
+  };
+
+  const handleImageModelChange = (model: ImageModel) => {
+    onImageModelChange(model);
     window.setTimeout(() => setIsOpen(false), CLOSE_DELAY_MS);
   };
 
@@ -93,7 +103,7 @@ const StoryModelControls: React.FC<StoryModelControlsProps> = ({
           <div className="bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl backdrop-blur-sm p-4 max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm text-slate-300">
-                Choose a model. Changes apply to upcoming scenes.
+                Choose models. Changes apply to upcoming scenes.
               </div>
               <button
                 type="button"
@@ -106,11 +116,21 @@ const StoryModelControls: React.FC<StoryModelControlsProps> = ({
                 </svg>
               </button>
             </div>
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={handleModelChange}
-              disabled={disabled}
-            />
+            <div className="space-y-6">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={handleModelChange}
+                disabled={disabled}
+              />
+              
+              <div className="border-t border-slate-700 pt-6">
+                <ImageModelSelector
+                  selectedModel={selectedImageModel}
+                  onModelChange={handleImageModelChange}
+                  disabled={disabled}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

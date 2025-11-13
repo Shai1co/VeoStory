@@ -84,11 +84,50 @@ const SEEDANCE_PRO_VERSION = '1f8e5a9881ddd2e19896e97120de117abbf4accdf0e2884c9f
 // Last checked: 2025-10-30
 const FLUX_SCHNELL_VERSION = 'c846a69991daf4c0e5d016514849d14ee5b2e6846ce6b9d6f21369e564cfe51e';
 
+// ==============================================================================
+// NEW MODELS: Using model paths instead of version hashes
+// This automatically uses the latest version of each model
+// ==============================================================================
+
+// Model paths for new models (no version hash needed)
+// These will automatically use the latest version
+
+// Wan 2.5 I2V - Image to video with audio
+// URL: https://replicate.com/wan-video/wan-2.5-i2v
+// Typical cost: ~$0.08-0.12 per run (based on 60-80s runtime on A100)
+const WAN_2_5_I2V_MODEL = 'wan-video/wan-2.5-i2v';
+
+// Wan 2.5 I2V Fast - Faster version with audio
+// URL: https://replicate.com/wan-video/wan-2.5-i2v-fast
+// Typical cost: ~$0.04-0.06 per run (based on 30-40s runtime on A100)
+const WAN_2_5_I2V_FAST_MODEL = 'wan-video/wan-2.5-i2v-fast';
+
+// Google Veo 3.1 - Text/Image to video with context-aware audio
+// URL: https://replicate.com/google/veo-3.1
+// Typical cost: ~$0.20-0.30 per run (premium model)
+const VEO_3_1_MODEL = 'google/veo-3.1';
+
+// Google Veo 3.1 Fast - Faster version with audio
+// URL: https://replicate.com/google/veo-3.1-fast
+// Typical cost: ~$0.10-0.15 per run (premium model, faster)
+const VEO_3_1_FAST_MODEL = 'google/veo-3.1-fast';
+
+// Google Veo 3 - Text/Image to video with audio
+// URL: https://replicate.com/google/veo-3
+// Typical cost: ~$0.20-0.30 per run (premium model)
+const VEO_3_MODEL = 'google/veo-3';
+
+// Google Veo 3 Fast - Faster version with audio
+// URL: https://replicate.com/google/veo-3-fast
+// Typical cost: ~$0.10-0.15 per run (premium model, faster)
+const VEO_3_FAST_MODEL = 'google/veo-3-fast';
+
 /**
  * Model configuration interface
  */
 interface ReplicateModelConfig {
-  version: string;
+  version?: string; // Optional - used for old models
+  model?: string; // Optional - used for new models (owner/name format)
   buildInput: (imageData: string, options: any) => any;
   defaultOptions: any;
 }
@@ -111,95 +150,74 @@ function parseDuration(duration: string | number): number {
  */
 function getReplicateModelConfig(modelId: string): ReplicateModelConfig {
   switch (modelId) {
-    case 'replicate-svd':
+    case 'replicate-wan-2.5-i2v':
       return {
-        version: SVD_MODEL_VERSION,
-        buildInput: (imageData: string, options: any) => ({
-          input_image: imageData,
-          frames: options.frames || 25,
-          motion_bucket_id: options.motionStrength || 127,
-          cond_aug: 0.02,
-          decoding_t: 7,
-          ...(options.seed !== undefined && { seed: options.seed })
-        }),
-        defaultOptions: { frames: 25, motionStrength: 127 }
-      };
-
-    case 'replicate-animatediff':
-      return {
-        version: ANIMATEDIFF_VERSION,
+        model: WAN_2_5_I2V_MODEL,
         buildInput: (imageData: string, options: any) => ({
           image: imageData,
-          motion_module: 'v3_sd15_mm',
-          steps: options.steps || 25,
-          guidance_scale: options.guidanceScale || 7.5,
-          ...(options.seed !== undefined && { seed: options.seed })
-        }),
-        defaultOptions: { steps: 25, guidanceScale: 7.5 }
-      };
-
-    case 'replicate-hotshot':
-      return {
-        version: HOTSHOT_VERSION,
-        buildInput: (imageData: string, options: any) => ({
-          image: imageData,
-          fps: options.fps || 8,
-          output_format: 'mp4',
-          ...(options.seed !== undefined && { seed: options.seed })
-        }),
-        defaultOptions: { fps: 8 }
-      };
-
-    case 'replicate-hailuo-02':
-      return {
-        version: HAILUO_02_VERSION,
-        buildInput: (imageData: string, options: any) => ({
           prompt: options.prompt || '',
-          last_frame_image: imageData, // For I2V mode
-          resolution: '768p', // Standard quality (lowest)
-          duration: parseDuration(options.duration || '6s'), // 6s or 10s
+          duration: parseDuration(options.duration || '5s'),
+          resolution: '720p',
           ...(options.seed !== undefined && { seed: options.seed })
         }),
-        defaultOptions: { resolution: '768p', duration: '6s' }
+        defaultOptions: { duration: '5s', resolution: '720p' }
       };
 
-    case 'replicate-seedance-lite':
+    case 'replicate-wan-2.5-i2v-fast':
       return {
-        version: SEEDANCE_LITE_VERSION,
+        model: WAN_2_5_I2V_FAST_MODEL,
+        buildInput: (imageData: string, options: any) => ({
+          image: imageData,
+          prompt: options.prompt || '',
+          duration: parseDuration(options.duration || '5s'),
+          resolution: '720p',
+          ...(options.seed !== undefined && { seed: options.seed })
+        }),
+        defaultOptions: { duration: '5s', resolution: '720p' }
+      };
+
+    case 'replicate-veo-3.1':
+      return {
+        model: VEO_3_1_MODEL,
         buildInput: (imageData: string, options: any) => ({
           prompt: options.prompt || '',
           image: imageData, // For I2V mode
-          resolution: '480p', // Lowest resolution
-          duration: parseDuration(options.duration || '5s'), // 5s or 10s
           ...(options.seed !== undefined && { seed: options.seed })
         }),
-        defaultOptions: { resolution: '480p', duration: '5s' }
+        defaultOptions: {}
       };
 
-    case 'replicate-seedance-pro-fast':
+    case 'replicate-veo-3.1-fast':
       return {
-        version: SEEDANCE_PRO_FAST_VERSION,
+        model: VEO_3_1_FAST_MODEL,
         buildInput: (imageData: string, options: any) => ({
           prompt: options.prompt || '',
-          image: imageData,
-          resolution: '720p', // Lower resolution for fast variant
-          duration: parseDuration(options.duration || '5s'),
+          image: imageData, // For I2V mode
           ...(options.seed !== undefined && { seed: options.seed })
         }),
-        defaultOptions: { resolution: '720p', duration: '5s' }
+        defaultOptions: {}
       };
 
-    case 'replicate-seedance-pro':
+    case 'replicate-veo-3':
       return {
-        version: SEEDANCE_PRO_VERSION,
+        model: VEO_3_MODEL,
         buildInput: (imageData: string, options: any) => ({
           prompt: options.prompt || '',
-          image: imageData,
-          resolution: '720p', // Lowest available for pro
-          duration: parseDuration(options.duration || '5s'),
+          image: imageData, // For I2V mode
           ...(options.seed !== undefined && { seed: options.seed })
         }),
-        defaultOptions: { resolution: '720p', duration: '5s' }
+        defaultOptions: {}
+      };
+
+    case 'replicate-veo-3-fast':
+      return {
+        model: VEO_3_FAST_MODEL,
+        buildInput: (imageData: string, options: any) => ({
+          prompt: options.prompt || '',
+          image: imageData, // For I2V mode
+          ...(options.seed !== undefined && { seed: options.seed })
+        }),
+        defaultOptions: {}
       };
 
     default:
@@ -225,18 +243,35 @@ export async function createReplicatePrediction(
   // Merge options with defaults
   const finalOptions = { ...modelConfig.defaultOptions, ...options };
 
-  const requestBody: ReplicateCreateRequest = {
-    version: modelConfig.version,
-    input: modelConfig.buildInput(imageData, finalOptions)
-  };
+  // Determine endpoint and request body based on whether we're using version or model path
+  let endpoint: string;
+  let requestBody: any;
+
+  if (modelConfig.model) {
+    // New approach: Use model path (automatically uses latest version)
+    endpoint = `${REPLICATE_API_BASE}/models/${modelConfig.model}/predictions`;
+    requestBody = {
+      input: modelConfig.buildInput(imageData, finalOptions)
+    };
+  } else if (modelConfig.version) {
+    // Old approach: Use specific version
+    endpoint = `${REPLICATE_API_BASE}/predictions`;
+    requestBody = {
+      version: modelConfig.version,
+      input: modelConfig.buildInput(imageData, finalOptions)
+    };
+  } else {
+    throw new Error(`Model configuration for ${modelId} must specify either 'model' or 'version'`);
+  }
 
   console.log('🎬 Replicate API Request:', {
-    endpoint: `${REPLICATE_API_BASE}/predictions`,
+    endpoint,
     model: modelId,
+    modelPath: modelConfig.model || `version: ${modelConfig.version}`,
     options: finalOptions
   });
 
-  const response = await fetch(`${REPLICATE_API_BASE}/predictions`, {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -435,48 +470,83 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
 
 /**
  * Generate video from text prompt (text-to-video via image generation + model)
- * Uses FLUX Schnell (free) for image gen + specified Replicate model for animation
+ * Supports Flux Schnell (free) or Gemini Imagen 3 for image generation
  */
 export async function generateReplicateVideoFromText(
   prompt: string,
   modelId: string = 'replicate-svd',
-  options: any = {}
+  options: any = {},
+  imageModel: 'flux-schnell' | 'gemini-imagen-3' = 'flux-schnell'
 ): Promise<string> {
 
-  console.log(`📝 Starting text-to-video with Replicate (FLUX + ${modelId})...`);
+  console.log(`📝 Starting text-to-video with Replicate (${imageModel} + ${modelId})...`);
 
-  // Step 1: Generate image from text using FLUX Schnell (cheapest option)
-  console.log('🎨 Generating initial image from text prompt...');
+  // Step 1: Generate image from text using selected image model
+  console.log(`🎨 Generating initial image from text prompt with ${imageModel}...`);
   
   let imageData: string;
   
-  try {
-    // Use FLUX Schnell on Replicate (free/very cheap)
-    imageData = await generateImageWithFlux(prompt);
-    console.log('✅ Image generated with FLUX Schnell');
-  } catch (fluxError) {
-    console.warn('⚠️ FLUX failed, trying Stability AI...', fluxError);
-    
+  if (imageModel === 'gemini-imagen-3') {
+    // Use Gemini Imagen 3 (Nano Banana)
     try {
-      // Fallback to Stability AI
-      const { generateStableImage } = await import('./stableImageService');
-      imageData = await generateStableImage(prompt, {
+      const { generateGeminiImage } = await import('./geminiImageService');
+      imageData = await generateGeminiImage(prompt, {
         aspectRatio: '16:9',
-        model: 'core',
-        negativePrompt: 'blurry, low quality, distorted, ugly'
+        style: 'photographic',
+        quality: 'high'
       });
-      console.log('✅ Image generated with Stability AI');
-    } catch (stabilityError) {
-      console.warn('⚠️ Stability AI also failed, using placeholder...', stabilityError);
+      console.log('✅ Image generated with Gemini Imagen 3 (Nano Banana)');
+    } catch (geminiError) {
+      console.warn('⚠️ Gemini failed, falling back to FLUX...', geminiError);
+      imageData = await generateImageWithFlux(prompt);
+      console.log('✅ Image generated with FLUX Schnell (fallback)');
+    }
+  } else {
+    // Use FLUX Schnell (default)
+    try {
+      imageData = await generateImageWithFlux(prompt);
+      console.log('✅ Image generated with FLUX Schnell');
+    } catch (fluxError) {
+      console.warn('⚠️ FLUX failed, trying Gemini...', fluxError);
       
-      // Last resort: Create a placeholder image
-      const { generatePlaceholderImage } = await import('./placeholderImageService');
-      imageData = await generatePlaceholderImage(prompt, {
-        aspectRatio: '16:9',
-        width: 640,
-        height: 360
-      });
-      console.log('✅ Placeholder image created as fallback');
+      try {
+        // Fallback to Gemini if available
+        const { generateGeminiImage, isGeminiAvailable } = await import('./geminiImageService');
+        if (isGeminiAvailable()) {
+          imageData = await generateGeminiImage(prompt, {
+            aspectRatio: '16:9',
+            style: 'photographic',
+            quality: 'high'
+          });
+          console.log('✅ Image generated with Gemini (fallback)');
+        } else {
+          throw new Error('Gemini not available');
+        }
+      } catch (geminiError) {
+        console.warn('⚠️ Gemini also failed, trying Stability AI...', geminiError);
+        
+        try {
+          // Fallback to Stability AI
+          const { generateStableImage } = await import('./stableImageService');
+          imageData = await generateStableImage(prompt, {
+            aspectRatio: '16:9',
+            model: 'core',
+            negativePrompt: 'blurry, low quality, distorted, ugly'
+          });
+          console.log('✅ Image generated with Stability AI');
+        } catch (stabilityError) {
+          console.warn('⚠️ Stability AI also failed, using placeholder...', stabilityError);
+          
+          // Last resort: Create a placeholder image
+          const { generatePlaceholderImage } = await import('./placeholderImageService');
+          imageData = await generatePlaceholderImage(prompt, {
+            aspectRatio: '16:9',
+            width: 640,
+            height: 360
+          });
+          console.log('✅ Placeholder image created as fallback');
+        }
+      }
     }
   }
 
@@ -484,6 +554,27 @@ export async function generateReplicateVideoFromText(
 
   // Step 2: Generate video from the image
   return await generateReplicateVideo(imageData, modelId, options);
+}
+
+/**
+ * Generate just the image for preview (used in initial image preview step)
+ */
+export async function generateImageForPreview(
+  prompt: string,
+  imageModel: 'flux-schnell' | 'gemini-imagen-3' = 'flux-schnell'
+): Promise<string> {
+  if (imageModel === 'gemini-imagen-3') {
+    // Use Gemini Imagen 3
+    const { generateGeminiImage } = await import('./geminiImageService');
+    return await generateGeminiImage(prompt, {
+      aspectRatio: '16:9',
+      style: 'photographic',
+      quality: 'high'
+    });
+  } else {
+    // Use Flux Schnell (default)
+    return await generateImageWithFlux(prompt);
+  }
 }
 
 /**
@@ -504,9 +595,10 @@ export async function generateAndFetchReplicateVideo(
 export async function generateAndFetchReplicateVideoFromText(
   prompt: string,
   modelId: string = 'replicate-svd',
-  options: any = {}
+  options: any = {},
+  imageModel: 'flux-schnell' | 'gemini-imagen-3' = 'flux-schnell'
 ): Promise<Blob> {
-  const videoUrl = await generateReplicateVideoFromText(prompt, modelId, options);
+  const videoUrl = await generateReplicateVideoFromText(prompt, modelId, options, imageModel);
   return await fetchReplicateVideoBlob(videoUrl);
 }
 

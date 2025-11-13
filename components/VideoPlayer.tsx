@@ -8,9 +8,10 @@ interface VideoPlayerProps {
   isCurrent: boolean;
   onClick: () => void;
   segmentIndex?: number;
+  isGlobalMuted?: boolean;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoSegment, onVideoEnd, onProgress, isCurrent, onClick, segmentIndex = 0 }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoSegment, onVideoEnd, onProgress, isCurrent, onClick, segmentIndex = 0, isGlobalMuted = false }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -53,6 +54,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoSegment, onVideoEnd, onP
     return () => clearTimeout(timer);
   }, []);
 
+  // Update muted state dynamically when global mute changes
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+    
+    videoElement.muted = !isCurrent || isGlobalMuted;
+  }, [isGlobalMuted, isCurrent]);
+
   return (
     <div 
       className={`aspect-video w-full rounded-xl overflow-hidden shadow-2xl smooth-transition-slow ${
@@ -70,7 +79,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoSegment, onVideoEnd, onP
           key={videoSegment.videoUrl}
           src={videoSegment.videoUrl}
           controls={isCurrent}
-          muted={!isCurrent}
+          muted={!isCurrent || isGlobalMuted}
           playsInline
           className="w-full h-full object-cover smooth-transition"
         />

@@ -8,6 +8,7 @@ import {
   GenerationQueueTask,
   GenerationIntent,
   VideoModel,
+  ImageModel,
 } from './types';
 import useGenerationQueue from './hooks/useGenerationQueue';
 import { generateChoices } from './services/veoService';
@@ -27,9 +28,11 @@ import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import WelcomeTooltip from './components/WelcomeTooltip';
 import JumpToLatest from './components/JumpToLatest';
 import ModelSelector from './components/ModelSelector';
+import ImageModelSelector from './components/ImageModelSelector';
+import ImagePreview from './components/ImagePreview';
 import StoryModelControls from './components/StoryModelControls';
 import GenerationStatusBanner from './components/GenerationStatusBanner';
-import ExportOptionsDialog from './components/ExportOptionsDialog';
+import ExportOptionsDialog, { ExportResolution } from './components/ExportOptionsDialog';
 import { StylePreset } from './config/stylePresets';
 import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
@@ -55,6 +58,12 @@ export default function App() {
   const [choiceRegenerationError, setChoiceRegenerationError] = useState<string | null>(null);
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
   const [customPromptValue, setCustomPromptValue] = useState('');
+  
+  // Image preview state
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [initialPrompt, setInitialPrompt] = useState<string>('');
+  const [initialStylePreset, setInitialStylePreset] = useState<StylePreset | null>(null);
+  const [isRetryingImage, setIsRetryingImage] = useState(false);
   
   const toggleCustomPrompt = useCallback(() => {
     if (gameState !== GameState.CHOICES) {
@@ -82,6 +91,14 @@ export default function App() {
     const saved = localStorage.getItem('veo-model-preference');
     return (saved as VideoModel) || 'veo-3.1-fast-generate-preview';
   });
+  const [selectedImageModel, setSelectedImageModel] = useState<ImageModel>(() => {
+    const saved = localStorage.getItem('veo-image-model-preference');
+    return (saved as ImageModel) || 'flux-schnell';
+  });
+  const [isGlobalMuted, setIsGlobalMuted] = useState<boolean>(() => {
+    const saved = localStorage.getItem('veo-global-mute');
+    return saved === 'true';
+  });
   
   const mainContentRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +113,20 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('veo-model-preference', selectedModel);
   }, [selectedModel]);
+
+  // Save image model preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('veo-image-model-preference', selectedImageModel);
+  }, [selectedImageModel]);
+
+  // Save mute preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('veo-global-mute', isGlobalMuted.toString());
+  }, [isGlobalMuted]);
+
+  const toggleGlobalMute = useCallback(() => {
+    setIsGlobalMuted(prev => !prev);
+  }, []);
 
   const loadGameFromDB = useCallback(async () => {
     await initDB();
@@ -192,6 +223,11 @@ export default function App() {
       key: 's',
       description: 'Toggle story timeline',
       action: () => setIsTimelineSidebarOpen(prev => !prev),
+    },
+    {
+      key: 'm',
+      description: 'Toggle global mute',
+      action: toggleGlobalMute,
     },
     {
       key: '?',
@@ -331,6 +367,32 @@ export default function App() {
       const message = getProviderErrorMessage(task.model, error);
       setErrorMessage(message);
       setGameState(GameState.ERROR);
+      
+      // If this was a continuation task, clear the selectedChoice from the previous segment
+      // so the user can select a choice again after fixing the error
+      if (task.intent === 'continuation') {
+        const storedSegments = await loadSegments();
+        // Find the segment that has a selectedChoice but no next segment was created
+        const segmentWithFailedChoice = storedSegments.find(seg => 
+          seg.selectedChoice && !storedSegments.some(s => s.id > seg.id)
+        );
+        
+        if (segmentWithFailedChoice) {
+          // Clear the selectedChoice so user can try again
+          const clearedSegment: StoredVideoSegment = {
+            ...segmentWithFailedChoice,
+            selectedChoice: undefined,
+          };
+          await saveSegment(clearedSegment);
+          
+          // Update the in-memory state as well
+          setVideoSegments(prev => prev.map(seg => 
+            seg.id === segmentWithFailedChoice.id 
+              ? { ...seg, selectedChoice: undefined }
+              : seg
+          ));
+        }
+      }
     },
     [],
   );
@@ -338,7 +400,7 @@ export default function App() {
   const {
     tasks: generationTasks,
     enqueueTask,
-    cancelTask: cancelGenerationTask,
+    cancelTask: cancelGenerationTaskInternal,
     retryTask: retryGenerationTask,
     activeTask: activeGenerationTask,
     pendingCount: pendingGenerationCount,
@@ -346,6 +408,44 @@ export default function App() {
     onTaskSuccess: handleGenerationTaskSuccess,
     onTaskError: handleGenerationTaskError,
   });
+
+  // Wrap cancelTask to also restore choice selection when cancelling a failed generation
+  const cancelGenerationTask = useCallback(async (taskId: string) => {
+    const task = generationTasks.find(t => t.id === taskId);
+    const wasCancelled = await cancelGenerationTaskInternal(taskId);
+    
+    // If we cancelled a continuation task, clear the selectedChoice from the previous segment
+    if (wasCancelled && task?.intent === 'continuation') {
+      const storedSegments = await loadSegments();
+      const segmentWithFailedChoice = storedSegments.find(seg => 
+        seg.selectedChoice && !storedSegments.some(s => s.id > seg.id)
+      );
+      
+      if (segmentWithFailedChoice) {
+        const clearedSegment: StoredVideoSegment = {
+          ...segmentWithFailedChoice,
+          selectedChoice: undefined,
+        };
+        await saveSegment(clearedSegment);
+        
+        setVideoSegments(prev => prev.map(seg => 
+          seg.id === segmentWithFailedChoice.id 
+            ? { ...seg, selectedChoice: undefined }
+            : seg
+        ));
+        
+        // Restore choices and game state so user can select again
+        if (segmentWithFailedChoice.choices) {
+          setChoices(segmentWithFailedChoice.choices);
+          setCurrentSegmentId(segmentWithFailedChoice.id);
+          setGameState(GameState.CHOICES);
+          setErrorMessage(null);
+        }
+      }
+    }
+    
+    return wasCancelled;
+  }, [cancelGenerationTaskInternal, generationTasks]);
 
   useEffect(() => {
     if (generationTasks.length === 0) {
@@ -366,13 +466,14 @@ export default function App() {
           prompt,
           model: selectedModel,
           imageData: lastFrame ?? null,
+          imageModel: selectedImageModel,
           intent,
         });
       } catch (error) {
         handleError(error, 'while queueing video generation');
       }
     },
-    [enqueueTask, getNextSegmentId, selectedModel],
+    [enqueueTask, getNextSegmentId, selectedModel, selectedImageModel],
   );
 
   const focusLatestSegment = useCallback(() => {
@@ -389,10 +490,9 @@ export default function App() {
     scrollToBottom();
   }, [videoSegments, scrollToBottom]);
 
-  const startNewGame = async (prompt: string, stylePreset: StylePreset | null) => {
+  const generateInitialImage = async (prompt: string, stylePreset: StylePreset | null) => {
     try {
-      // Set loading state immediately to show indicator and prevent more clicks
-      setGameState(GameState.GENERATING_VIDEO);
+      setGameState(GameState.GENERATING_IMAGE);
       setLoadingTitle('Enhancing Your Prompt...');
 
       // Clear any previous game state
@@ -415,14 +515,72 @@ export default function App() {
       // Enhance the prompt to make it more game-like and adventurous
       const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true });
       
-      setLoadingTitle('Crafting Your First Scene...');
+      setLoadingTitle('Generating Your Scene Image...');
       
-      // Start generating the first video with enhanced prompt
-      await queueVideoGeneration(enhancedPrompt, 'initial');
+      // Generate the initial image based on selected image model
+      const { generateImageForPreview } = await import('./services/replicateService');
+      const imageDataUrl = await generateImageForPreview(enhancedPrompt, selectedImageModel);
+      
+      // Store for later use and show preview
+      setPreviewImageUrl(imageDataUrl);
+      setInitialPrompt(enhancedPrompt);
+      setInitialStylePreset(stylePreset);
+      setGameState(GameState.IMAGE_PREVIEW);
+      
     } catch (error) {
-      handleError(error, 'during prompt enhancement');
+      handleError(error, 'during image generation');
     }
   };
+
+  const startNewGame = async (prompt: string, stylePreset: StylePreset | null) => {
+    await generateInitialImage(prompt, stylePreset);
+  };
+
+  const handleAcceptImage = useCallback(async () => {
+    if (!previewImageUrl || !initialPrompt) return;
+    
+    try {
+      setGameState(GameState.GENERATING_VIDEO);
+      setLoadingTitle('Crafting Your First Scene...');
+      
+      // Start generating the first video with the approved image
+      await queueVideoGeneration(initialPrompt, 'initial', previewImageUrl);
+    } catch (error) {
+      handleError(error, 'during video generation');
+    }
+  }, [previewImageUrl, initialPrompt, queueVideoGeneration]);
+
+  const handleRetryImage = useCallback(async () => {
+    if (!initialPrompt || !initialStylePreset) return;
+    
+    setIsRetryingImage(true);
+    try {
+      // Revoke the old image URL to free memory
+      if (previewImageUrl) {
+        URL.revokeObjectURL(previewImageUrl);
+      }
+      
+      // Regenerate the image
+      await generateInitialImage(initialPrompt, initialStylePreset);
+    } catch (error) {
+      handleError(error, 'during image retry');
+    } finally {
+      setIsRetryingImage(false);
+    }
+  }, [initialPrompt, initialStylePreset, previewImageUrl]);
+
+  const handleDiscardImage = useCallback(() => {
+    // Revoke the image URL to free memory
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+    
+    // Clear preview state and return to start
+    setPreviewImageUrl(null);
+    setInitialPrompt('');
+    setInitialStylePreset(null);
+    setGameState(GameState.START);
+  }, [previewImageUrl]);
   
   // Background prefetch choices when video is near end (80% complete)
   const handleVideoProgress = useCallback(async (currentTime: number, duration: number) => {
@@ -718,7 +876,7 @@ export default function App() {
         setShowExportOptions(true);
     }
 
-    const handleExportWithOverlays = async () => {
+    const handleExportWithOverlays = async (resolution: ExportResolution) => {
         setShowExportOptions(false);
         const segmentsToExport = await loadSegments();
         
@@ -726,7 +884,7 @@ export default function App() {
         setGameState(GameState.EXPORTING_VIDEO);
         
         try {
-            const combinedVideoBlob = await combineVideosWithChoiceOverlays(segmentsToExport);
+            const combinedVideoBlob = await combineVideosWithChoiceOverlays(segmentsToExport, resolution);
 
             const url = URL.createObjectURL(combinedVideoBlob);
             const a = document.createElement('a');
@@ -752,7 +910,7 @@ export default function App() {
         }
     }
 
-    const handleExportSimple = async () => {
+    const handleExportSimple = async (resolution: ExportResolution) => {
         setShowExportOptions(false);
         const segmentsToExport = await loadSegments();
         
@@ -761,7 +919,7 @@ export default function App() {
         
         try {
             const videoBlobs = segmentsToExport.map(s => s.videoBlob);
-            const combinedVideoBlob = await combineVideos(videoBlobs);
+            const combinedVideoBlob = await combineVideos(videoBlobs, resolution);
 
             const url = URL.createObjectURL(combinedVideoBlob);
             const a = document.createElement('a');
@@ -844,6 +1002,7 @@ export default function App() {
   return (
     <div className="bg-gray-900 text-gray-200 min-h-screen flex flex-col font-sans">
         {/* Loading Indicator */}
+        {gameState === GameState.GENERATING_IMAGE && <LoadingIndicator title={loadingTitle} variant="simple" />}
         {gameState === GameState.GENERATING_VIDEO && <LoadingIndicator title={loadingTitle} variant="video" model={selectedModel} />}
         {(
           gameState === GameState.EXPORTING ||
@@ -917,6 +1076,8 @@ export default function App() {
                 <StoryModelControls
                   selectedModel={selectedModel}
                   onModelChange={setSelectedModel}
+                  selectedImageModel={selectedImageModel}
+                  onImageModelChange={setSelectedImageModel}
                   pendingGenerationCount={pendingGenerationCount}
                   disabled={
                     gameState === GameState.EXPORTING ||
@@ -925,6 +1086,23 @@ export default function App() {
                   }
                 />
               )}
+              {/* Global Mute Toggle Button */}
+              <button
+                onClick={toggleGlobalMute}
+                className="p-2 text-slate-400 hover:text-sky-400 transition-colors"
+                title={isGlobalMuted ? "Unmute Videos (m)" : "Mute Videos (m)"}
+              >
+                {isGlobalMuted ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                )}
+              </button>
               {/* Keyboard Shortcuts Help Button */}
               <button
                 onClick={() => setShowKeyboardHelp(true)}
@@ -959,12 +1137,20 @@ export default function App() {
                 <div className="flex flex-col items-center w-full">
                   <PromptInput onSubmit={startNewGame} disabled={false} />
                   
-                  <div className="w-full max-w-3xl mx-auto mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-lg">
+                  <div className="w-full max-w-3xl mx-auto mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-lg space-y-6">
                     <ModelSelector
                       selectedModel={selectedModel}
                       onModelChange={setSelectedModel}
                       disabled={false}
                     />
+                    
+                    <div className="border-t border-slate-700 pt-6">
+                      <ImageModelSelector
+                        selectedModel={selectedImageModel}
+                        onModelChange={setSelectedImageModel}
+                        disabled={false}
+                      />
+                    </div>
                   </div>
 
                   <div className="text-center mt-8 border-t border-slate-700 w-full max-w-3xl pt-8">
@@ -975,6 +1161,17 @@ export default function App() {
                       <input id="import-story-input" ref={importInputRef} type="file" accept=".json" className="hidden" onChange={handleImportStory} />
                   </div>
                 </div>
+            )}
+
+            {gameState === GameState.IMAGE_PREVIEW && previewImageUrl && (
+                <ImagePreview
+                  imageUrl={previewImageUrl}
+                  prompt={initialPrompt}
+                  isRetrying={isRetryingImage}
+                  onAccept={handleAcceptImage}
+                  onRetry={handleRetryImage}
+                  onDiscard={handleDiscardImage}
+                />
             )}
 
             {errorMessage && (
@@ -1027,6 +1224,7 @@ export default function App() {
                             onCustomPromptChange={canRegenerateForSegment ? handleCustomPromptChange : undefined}
                             onCustomPromptSubmit={canRegenerateForSegment ? handleCustomPromptSubmit : undefined}
                             isCustomPromptSubmitting={isCustomPromptSubmitting}
+                            isGlobalMuted={isGlobalMuted}
                         />
                     )
                 })}

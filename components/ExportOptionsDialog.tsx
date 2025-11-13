@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+export type ExportResolution = 'original' | '720p' | '1080p' | '1440p' | '4k';
 
 interface ExportOptionsDialogProps {
-  onExportWithOverlays: () => void;
-  onExportSimple: () => void;
+  onExportWithOverlays: (resolution: ExportResolution) => void;
+  onExportSimple: (resolution: ExportResolution) => void;
   onCancel: () => void;
 }
 
@@ -11,21 +13,54 @@ const ExportOptionsDialog: React.FC<ExportOptionsDialogProps> = ({
   onExportSimple,
   onCancel,
 }) => {
+  const [selectedResolution, setSelectedResolution] = useState<ExportResolution>('original');
+
+  const resolutionOptions: { value: ExportResolution; label: string; description: string }[] = [
+    { value: 'original', label: 'Original', description: 'Keep source resolution (1280x720)' },
+    { value: '720p', label: '720p', description: '1280x720 (HD)' },
+    { value: '1080p', label: '1080p', description: '1920x1080 (Full HD)' },
+    { value: '1440p', label: '1440p', description: '2560x1440 (2K)' },
+    { value: '4k', label: '4K', description: '3840x2160 (Ultra HD)' },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl p-6 max-w-2xl mx-4 smooth-transition scale-in">
         <h2 className="text-2xl font-bold text-slate-100 mb-4">
-          Choose Export Mode
+          Choose Export Options
         </h2>
         
         <p className="text-slate-300 mb-6">
-          How would you like to export your video?
+          Configure your video export settings
         </p>
+
+        {/* Resolution Selector */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-slate-300 mb-3">
+            Output Resolution
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {resolutionOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setSelectedResolution(option.value)}
+                className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                  selectedResolution === option.value
+                    ? 'border-sky-500 bg-sky-500/20 text-white'
+                    : 'border-slate-600 bg-slate-700/50 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <div className="font-semibold">{option.label}</div>
+                <div className="text-xs mt-1 opacity-75">{option.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Export with Overlays Option */}
           <button
-            onClick={onExportWithOverlays}
+            onClick={() => onExportWithOverlays(selectedResolution)}
             className="group relative bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg p-6 transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-purple-500/30"
           >
             <div className="flex flex-col items-center text-center">
@@ -44,7 +79,7 @@ const ExportOptionsDialog: React.FC<ExportOptionsDialogProps> = ({
 
           {/* Export Simple Option */}
           <button
-            onClick={onExportSimple}
+            onClick={() => onExportSimple(selectedResolution)}
             className="group relative bg-slate-700 hover:bg-slate-600 text-white rounded-lg p-6 transition-all duration-300 transform hover:scale-105 hover:shadow-xl border border-slate-600"
           >
             <div className="flex flex-col items-center text-center">

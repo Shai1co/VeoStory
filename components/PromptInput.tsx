@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { STYLE_PRESETS, StylePreset } from '../config/stylePresets';
-import { getRandomPrompt, isGeminiTextAvailable } from '../services/geminiTextService';
+import { getRandomPrompt, isGeminiTextAvailable, expandPrompt } from '../services/geminiTextService';
 import ManualPromptBuilder from './ManualPromptBuilder';
 import {
   buildBlueprintFromManualSelections,
@@ -26,6 +26,8 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
   const [selectedPreset, setSelectedPreset] = useState<StylePreset | null>(STYLE_PRESETS[0]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [isLoadingExpansion, setIsLoadingExpansion] = useState(false);
+  const [originalPromptBeforeExpansion, setOriginalPromptBeforeExpansion] = useState<string | null>(null);
   const [isManualBuilderOpen, setIsManualBuilderOpen] = useState(false);
   const [manualSelections, setManualSelections] = useState<ManualBlueprintSelections>(() =>
     createRandomManualSelections(),
@@ -99,6 +101,36 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
     setPrompt(manualPrompt);
     setIsManualBuilderOpen(false);
     setIsExpanded(false);
+  };
+
+  const handleExpandWithAI = async () => {
+    if (!prompt.trim()) {
+      return;
+    }
+
+    setIsLoadingExpansion(true);
+    try {
+      // Save the original prompt before expansion
+      setOriginalPromptBeforeExpansion(prompt);
+      
+      // Expand the prompt using Gemini
+      const expandedPrompt = await expandPrompt(prompt);
+      setPrompt(expandedPrompt);
+    } catch (error) {
+      console.error('Failed to expand prompt:', error);
+      alert('Failed to expand prompt. Please check your Gemini API key and try again.');
+      // Don't save original if expansion failed
+      setOriginalPromptBeforeExpansion(null);
+    } finally {
+      setIsLoadingExpansion(false);
+    }
+  };
+
+  const handleRevertExpansion = () => {
+    if (originalPromptBeforeExpansion !== null) {
+      setPrompt(originalPromptBeforeExpansion);
+      setOriginalPromptBeforeExpansion(null);
+    }
   };
 
   // Auto-grow textarea based on content
@@ -277,7 +309,38 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
             </div>
 
             {/* Modal Actions */}
-            <div className="p-6 border-t border-slate-700 flex gap-3">
+            <div className="p-6 border-t border-slate-700 flex flex-col sm:flex-row gap-3">
+              {hasGemini && (
+                <button
+                  onClick={handleExpandWithAI}
+                  disabled={!prompt.trim() || isLoadingExpansion}
+                  className="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-400 transition-all duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden"
+                >
+                  {isLoadingExpansion ? (
+                    <>
+                      <span className="opacity-50">✨ Expand with AI</span>
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      </span>
+                    </>
+                  ) : (
+                    '✨ Expand with AI'
+                  )}
+                </button>
+              )}
+              
+              {originalPromptBeforeExpansion !== null && (
+                <button
+                  onClick={handleRevertExpansion}
+                  className="bg-amber-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-500 transition-colors"
+                >
+                  ↶ Revert
+                </button>
+              )}
+              
               <button
                 onClick={() => setIsExpanded(false)}
                 className="flex-grow bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-lg hover:bg-slate-600 transition-colors"

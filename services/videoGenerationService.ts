@@ -3,7 +3,7 @@
  * Routes requests to appropriate provider based on selected model
  */
 
-import { VideoModel } from '../types';
+import { VideoModel, ImageModel } from '../types';
 import * as veoService from './veoService';
 import * as runwayService from './runwayService';
 import * as stableVideoService from './stableVideoService';
@@ -13,6 +13,7 @@ export interface VideoGenerationRequest {
   prompt: string;
   model: VideoModel;
   imageData?: string; // base64 data URL for image-to-video
+  imageModel?: ImageModel; // Which model to use for text-to-image (when imageData is not provided)
 }
 
 export interface VideoGenerationResponse {
@@ -183,7 +184,7 @@ async function generateStableVideo(request: VideoGenerationRequest): Promise<Vid
  * Supports multiple models: SVD, AnimateDiff, HotShot, I2VGen-XL, SVD-XT 1.1, CogVideoX
  */
 async function generateReplicateVideo(request: VideoGenerationRequest): Promise<VideoGenerationResponse> {
-  const { prompt, imageData, model } = request;
+  const { prompt, imageData, model, imageModel = 'flux-schnell' } = request;
 
   console.log(`🔄 Generating Replicate video with ${model}...`);
 
@@ -195,8 +196,8 @@ async function generateReplicateVideo(request: VideoGenerationRequest): Promise<
     videoBlob = await replicateService.generateAndFetchReplicateVideo(imageData, model);
   } else {
     // Text-to-video: Generate image first, then animate
-    console.log(`📝 Using text-to-video workflow (FLUX + ${model})...`);
-    videoBlob = await replicateService.generateAndFetchReplicateVideoFromText(prompt, model);
+    console.log(`📝 Using text-to-video workflow (${imageModel} + ${model})...`);
+    videoBlob = await replicateService.generateAndFetchReplicateVideoFromText(prompt, model, {}, imageModel);
   }
 
   // Get metadata based on model
@@ -216,31 +217,8 @@ async function generateReplicateVideo(request: VideoGenerationRequest): Promise<
  * Get model-specific metadata for Replicate models
  */
 function getReplicateModelMetadata(model: VideoModel): { duration: number; resolution: string } {
-  switch (model) {
-    case 'replicate-svd':
-      return { duration: 1, resolution: '576p' };
-    
-    case 'replicate-animatediff':
-      return { duration: 3, resolution: '512x512' };
-    
-    case 'replicate-hotshot':
-      return { duration: 1.5, resolution: '512x512' };
-    
-    case 'replicate-hailuo-02':
-      return { duration: 6, resolution: '768p' };
-    
-    case 'replicate-seedance-lite':
-      return { duration: 5, resolution: '480p' };
-    
-    case 'replicate-seedance-pro-fast':
-      return { duration: 5, resolution: '720p' };
-    
-    case 'replicate-seedance-pro':
-      return { duration: 5, resolution: '720p' };
-    
-    default:
-      return { duration: 2, resolution: '576p' };
-  }
+  // Most Replicate models use defaults, specific cases handled in model metadata
+  return { duration: 5, resolution: '720p' };
 }
 
 /**

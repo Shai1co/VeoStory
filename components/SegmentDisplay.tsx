@@ -25,6 +25,7 @@ interface SegmentDisplayProps {
   onCustomPromptChange?: (value: string) => void;
   onCustomPromptSubmit?: () => void;
   isCustomPromptSubmitting?: boolean;
+  isGlobalMuted?: boolean;
 }
 
 const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
@@ -49,6 +50,7 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
   onCustomPromptChange,
   onCustomPromptSubmit,
   isCustomPromptSubmitting = false,
+  isGlobalMuted = false,
 }) => {
   const promptLabel = index === 0 ? 'You began with:' : 'Then you chose:';
   const shouldShowOverlay = isCurrent && (segment.choices || isChoiceLoading);
@@ -69,6 +71,7 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
         isCurrent={isCurrent}
         segmentIndex={index}
         onClick={onSegmentSelect}
+        isGlobalMuted={isGlobalMuted}
       />
 
       {shouldShowOverlay && (
