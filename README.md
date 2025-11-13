@@ -116,7 +116,7 @@ _Note: You'll need to provide your own API keys to use the app (see below)._
 | **Replicate** | FLUX Schnell | ~$0.003/image | Fast image generation |
 | **Runway** | Gen-3 Alpha | ~$0.05/second | High quality |
 
-> 💡 **Tip:** Start with Google Gemini (free tier) and FLUX Schnell (free) to explore the app without costs!
+> 💡 **Tip:** Start with Google Gemini (free tier) + Imagen 3 to explore the app with minimal costs!
 
 ## 📦 Deploy Your Own
 
