@@ -195,14 +195,27 @@ export const checkChoiceDiversity = (choices: string[]): boolean => {
     return false;
   }
   
-  // Check for similar lengths (all very short or all very long)
+  // Check for similar lengths - more lenient now (within 2 words is acceptable)
   const lengths = choices.map(c => c.split(/\s+/).length);
-  const avgLength = lengths.reduce((a, b) => a + b, 0) / lengths.length;
-  const allSimilarLength = lengths.every(l => Math.abs(l - avgLength) <= 1);
+  const minLength = Math.min(...lengths);
+  const maxLength = Math.max(...lengths);
+  const lengthRange = maxLength - minLength;
   
-  if (allSimilarLength && choices.length > 2) {
-    console.warn('All choices have similar length/structure');
+  // Only fail if ALL choices are exactly the same length OR within very narrow range
+  if (lengthRange === 0) {
+    console.warn('All choices have identical length');
     return false;
+  }
+  
+  // Additional check: if length range is too small (≤1) AND all choices are similar length
+  if (lengthRange <= 1 && choices.length > 2) {
+    const avgLength = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+    const allVerySimilar = lengths.every(l => Math.abs(l - avgLength) <= 0.67);
+    
+    if (allVerySimilar) {
+      console.warn('All choices have similar length/structure');
+      return false;
+    }
   }
   
   return true;

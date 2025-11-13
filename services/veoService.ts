@@ -140,18 +140,23 @@ IMPORTANT: Provide MORE VARIETY - include different action types!\n`;
        - Different risks, rewards, and story paths
        - Make players genuinely curious what happens next
     
-    6. LENGTH - Keep under 10 words but pack them with energy
+    6. LENGTH & STRUCTURE VARIETY - VARY the length and structure:
+       - One choice should be SHORT (4-6 words): "Charge through the dark gate"
+       - One choice should be MEDIUM (7-9 words): "Carefully investigate the glowing runes for hidden clues"
+       - One choice should be DETAILED (10-12 words): "Sneak through the shadows to spy on the enemy camp below"
+       - Use different sentence structures (imperative, compound, descriptive)
     
-    Good examples:
-    - "Charge through the gate and challenge the guardian" (BOLD)
-    - "Sneak through shadows to spy on the enemy camp" (CAUTIOUS)
-    - "Investigate the glowing runes for hidden secrets" (CREATIVE)
+    Good examples (note the DIFFERENT lengths):
+    - "Charge through the gate" (BOLD, 4 words - SHORT)
+    - "Sneak through shadows to spy on the enemy camp" (CAUTIOUS, 9 words - MEDIUM)
+    - "Investigate the mysterious glowing runes carved into the ancient wall" (CREATIVE, 11 words - DETAILED)
     
     Bad examples:
     - "Look around the area" (too vague, no story advancement)
     - "Go back to safety" (circular, retreating)
     - "Think about what to do next" (passive, no action)
     - "Try something" (not specific)
+    - All three choices being 6-7 words each (lack of length variety)
     
     Return ONLY a JSON array of 3 distinctly different, action-packed choices.
   `;
