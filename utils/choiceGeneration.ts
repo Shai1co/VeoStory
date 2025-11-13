@@ -1,5 +1,6 @@
 import { generateChoices } from '../services/veoService';
 import { validateChoices, checkChoiceDiversity } from './choiceQuality';
+import { NarrativeType } from '../config/narrativeTypes';
 
 const MAX_DISTINCT_CHOICE_ATTEMPTS = 5;
 const BASE_TEMPERATURE = 0.8;
@@ -21,6 +22,7 @@ interface DistinctChoiceRequest {
   progressionHints?: string[];
   recentChoiceTypes?: string[];
   storyPhase?: string;
+  narrativeType?: NarrativeType;
 }
 
 /**
@@ -63,6 +65,7 @@ export const fetchDistinctChoices = async ({
   progressionHints = [],
   recentChoiceTypes = [],
   storyPhase = 'ongoing',
+  narrativeType,
 }: DistinctChoiceRequest): Promise<string[]> => {
   const previousChoiceSet = new Set(previousChoices.map(normalizeChoice));
   let fallbackChoices: string[] | null = null;
@@ -88,6 +91,7 @@ export const fetchDistinctChoices = async ({
       progressionHints,
       recentChoiceTypes,
       storyPhase,
+      narrativeType,
     });
     
     // Validate choice quality

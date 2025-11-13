@@ -5,6 +5,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { getApiKey } from '../utils/apiKeys';
+import { NarrativeType } from '../config/narrativeTypes';
 
 const getAIClient = () => {
   const apiKey = getApiKey('GEMINI_API_KEY');
@@ -20,34 +21,53 @@ interface EnhancedPromptResult {
 }
 
 /**
+ * Builds narrative-specific guidance for prompt enhancement
+ */
+function buildNarrativeGuidance(narrativeType?: NarrativeType): string {
+  if (!narrativeType) {
+    return 'Create an exciting, dynamic adventure scene';
+  }
+
+  const hints = narrativeType.enhancementHints.initial;
+  return `NARRATIVE FOCUS (${narrativeType.name.toUpperCase()}): ${hints.slice(0, 3).join('. ')}.`;
+}
+
+/**
  * Enhances a user prompt to be more game-like and adventurous
  * - Adds dynamic movement and action
  * - Creates a main character with personality
  * - Makes scenarios more detailed and exciting
  * - Adds "juice" and adventure aesthetics
+ * - Applies narrative type guidance
  */
 export async function enhancePrompt(
   userPrompt: string,
   context?: {
     isInitial?: boolean;
     previousContext?: string;
+    narrativeType?: NarrativeType;
   }
 ): Promise<string> {
   const ai = getAIClient();
   
+  const narrativeGuidance = buildNarrativeGuidance(context?.narrativeType);
+  
   const systemPrompt = context?.isInitial
     ? `You are a game scenario writer. Transform the user's input into an exciting, game-like video scene description.
+
+${narrativeGuidance}
 
 REQUIREMENTS:
 - Create a vivid main character with personality and appearance
 - Make the character MOVE and DO interesting things (don't just stand there!)
-- Add dynamic action, adventure, and exploration
+- Add dynamic action aligned with the narrative type
 - Include game aesthetics: vibrant colors, dramatic lighting, cinematic camera work
 - Make it feel like a playable game or interactive adventure
 - Add sensory details: sounds, atmosphere, movement
 - Keep it under 200 characters but pack it with energy and detail
 - Use present tense for immediacy
 - Make it visual and cinematic
+- Emphasize elements that fit the ${context?.narrativeType?.name || 'adventure'} narrative
 
 Example transformations:
 "A wizard in a forest" → "A determined young wizard with glowing staff sprints through an ancient mystical forest, dodging floating orbs of light as magical creatures scatter, dramatic sunset rays piercing through canopy, dynamic third-person camera tracking the action"
@@ -59,6 +79,8 @@ Now enhance this prompt: "${userPrompt}"`
 
 Previous context: ${context?.previousContext || 'Adventure in progress'}
 
+${narrativeGuidance}
+
 REQUIREMENTS:
 - Continue the adventure with the established character
 - Show DYNAMIC MOVEMENT and exciting action
@@ -68,6 +90,7 @@ REQUIREMENTS:
 - Add environmental details and atmosphere
 - Keep under 200 characters but make every word count
 - Use present tense for immediacy
+- Align with the ${context?.narrativeType?.name || 'adventure'} narrative type
 
 Now enhance this next scene: "${userPrompt}"`;
 

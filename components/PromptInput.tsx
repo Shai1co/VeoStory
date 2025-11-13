@@ -1,8 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { STYLE_PRESETS, StylePreset } from '../config/stylePresets';
+import { NARRATIVE_TYPES, NarrativeType, getDefaultNarrativeType } from '../config/narrativeTypes';
 import { getRandomPrompt, isGeminiTextAvailable, expandPrompt } from '../services/geminiTextService';
 import ManualPromptBuilder from './ManualPromptBuilder';
+import NarrativeTypeSelector from './NarrativeTypeSelector';
 import {
   buildBlueprintFromManualSelections,
   createManualRandomPrompt,
@@ -12,7 +14,7 @@ import {
 } from '../utils/randomPromptBlueprint';
 
 interface PromptInputProps {
-  onSubmit: (prompt: string, stylePreset: StylePreset | null) => void;
+  onSubmit: (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => void;
   disabled: boolean;
 }
 
@@ -24,6 +26,7 @@ const RECOMMENDED_PROMPT_LENGTH = 500;
 const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
   const [prompt, setPrompt] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<StylePreset | null>(STYLE_PRESETS[0]);
+  const [selectedNarrativeType, setSelectedNarrativeType] = useState<NarrativeType>(getDefaultNarrativeType());
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
   const [isLoadingExpansion, setIsLoadingExpansion] = useState(false);
@@ -37,7 +40,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
-      onSubmit(prompt.trim(), selectedPreset);
+      onSubmit(prompt.trim(), selectedPreset, selectedNarrativeType);
     }
   };
   
@@ -161,6 +164,13 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
         <p className="text-center text-slate-400 mb-8 text-lg">
           Start your adventure. Describe the main character and the opening scene.
         </p>
+
+        {/* Narrative Type Selector */}
+        <NarrativeTypeSelector
+          selectedType={selectedNarrativeType}
+          onTypeChange={setSelectedNarrativeType}
+          disabled={disabled}
+        />
 
         {/* Style Preset Chips */}
         <div className="mb-4 fade-in-up">

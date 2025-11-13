@@ -5,6 +5,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { getApiKey } from '../utils/apiKeys';
+import { NarrativeType } from '../config/narrativeTypes';
 
 const getAIClient = () => {
   const apiKey = getApiKey('GEMINI_API_KEY');
@@ -68,6 +69,7 @@ export interface ChoiceGenerationOptions {
   progressionHints?: string[];
   recentChoiceTypes?: string[];
   storyPhase?: string;
+  narrativeType?: NarrativeType;
 }
 
 export const generateChoices = async (
@@ -82,6 +84,7 @@ export const generateChoices = async (
   const progressionHints = options?.progressionHints ?? [];
   const recentChoiceTypes = options?.recentChoiceTypes ?? [];
   const storyPhase = options?.storyPhase ?? 'ongoing';
+  const narrativeType = options?.narrativeType;
   
   // Build anti-pattern section
   let antiPatternSection = '';
@@ -108,13 +111,22 @@ IMPORTANT: Provide MORE VARIETY - include different action types!\n`;
     progressionSection = `\nStory Progression Guidance (Story Phase: ${storyPhase}):\n${progressionHints.map(h => `- ${h}`).join('\n')}\n`;
   }
   
+  // Build narrative type section
+  let narrativeSection = '';
+  if (narrativeType) {
+    const hints = narrativeType.enhancementHints.choiceGeneration;
+    narrativeSection = `\n🎭 NARRATIVE TYPE: ${narrativeType.name.toUpperCase()} - ${narrativeType.description}
+Guidance for this narrative type:
+${hints.map(h => `- ${h}`).join('\n')}\n`;
+  }
+  
   const prompt = `
     You are a game designer creating exciting action choices for a video game adventure. Based on the current story, suggest three dynamic and ACTION-ORIENTED choices.
 
     Story Context: "${storyContext}"
 
     If a reference frame is provided, align the choices with the details in that scene (characters, environment, objects, mood).
-    ${antiPatternSection}${diversitySection}${progressionSection}
+    ${narrativeSection}${antiPatternSection}${diversitySection}${progressionSection}
     CRITICAL REQUIREMENTS for each choice:
     
     1. DIVERSITY - Each choice MUST represent a DIFFERENT approach:

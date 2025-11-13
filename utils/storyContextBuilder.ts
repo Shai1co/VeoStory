@@ -4,6 +4,7 @@
  */
 
 import { VideoSegment } from '../types';
+import { getNarrativeTypeById, NarrativeType } from '../config/narrativeTypes';
 
 export interface StoryContext {
   fullNarrative: string;
@@ -13,6 +14,8 @@ export interface StoryContext {
   themes: string[];
   recentChoiceTypes: string[];
   progressionHints: string[];
+  narrativeType?: NarrativeType;
+  narrativeTypeHints: string[];
 }
 
 const BEGINNING_PHASE_MAX = 2;
@@ -120,7 +123,8 @@ const determineStoryArcPhase = (segmentCount: number): 'beginning' | 'rising' | 
 const generateProgressionHints = (
   phase: 'beginning' | 'rising' | 'climax' | 'resolution',
   themes: string[],
-  recentChoiceTypes: string[]
+  recentChoiceTypes: string[],
+  narrativeType?: NarrativeType
 ): string[] => {
   const hints: string[] = [];
   
@@ -148,6 +152,12 @@ const generateProgressionHints = (
       break;
   }
   
+  // Narrative type-specific hints
+  if (narrativeType) {
+    const narrativeHints = narrativeType.enhancementHints.choiceGeneration;
+    hints.push(...narrativeHints.slice(0, 2));
+  }
+  
   // Avoid repeating recent choice types
   const recentTypeSet = new Set(recentChoiceTypes);
   if (recentTypeSet.size === 1) {
@@ -167,9 +177,20 @@ const generateProgressionHints = (
 };
 
 /**
+ * Generates narrative-specific hints for choice generation
+ */
+const generateNarrativeTypeHints = (narrativeType?: NarrativeType): string[] => {
+  if (!narrativeType) {
+    return [];
+  }
+  
+  return narrativeType.enhancementHints.choiceGeneration;
+};
+
+/**
  * Builds comprehensive story context from video segments
  */
-export const buildStoryContext = (segments: VideoSegment[]): StoryContext => {
+export const buildStoryContext = (segments: VideoSegment[], currentNarrativeTypeId?: string): StoryContext => {
   const segmentCount = segments.length;
   const fullNarrative = segments.map(s => s.prompt).join(' Then, ');
   
@@ -185,9 +206,21 @@ export const buildStoryContext = (segments: VideoSegment[]): StoryContext => {
     .flatMap(s => s.choices || [])
     .map(categorizeChoice);
   
+  // Get narrative type from most recent segment or provided ID
+  let narrativeType: NarrativeType | undefined;
+  if (currentNarrativeTypeId) {
+    narrativeType = getNarrativeTypeById(currentNarrativeTypeId);
+  } else if (segments.length > 0) {
+    const lastSegment = segments[segments.length - 1];
+    if (lastSegment.narrativeType) {
+      narrativeType = getNarrativeTypeById(lastSegment.narrativeType);
+    }
+  }
+  
   const themes = extractThemes(segments);
   const storyArcPhase = determineStoryArcPhase(segmentCount);
-  const progressionHints = generateProgressionHints(storyArcPhase, themes, recentChoiceTypes);
+  const progressionHints = generateProgressionHints(storyArcPhase, themes, recentChoiceTypes, narrativeType);
+  const narrativeTypeHints = generateNarrativeTypeHints(narrativeType);
   
   return {
     fullNarrative,
@@ -197,6 +230,8 @@ export const buildStoryContext = (segments: VideoSegment[]): StoryContext => {
     themes,
     recentChoiceTypes,
     progressionHints,
+    narrativeType,
+    narrativeTypeHints,
   };
 };
 
@@ -206,12 +241,20 @@ export const buildStoryContext = (segments: VideoSegment[]): StoryContext => {
 export const formatStoryContextForPrompt = (context: StoryContext): string => {
   let formatted = `Story so far: ${context.fullNarrative}\n\n`;
   
+  if (context.narrativeType) {
+    formatted += `Narrative Type: ${context.narrativeType.name} - ${context.narrativeType.description}\n\n`;
+  }
+  
   if (context.recentActions.length > 0) {
     formatted += `Recent player actions:\n${context.recentActions.map((a, i) => `${i + 1}. ${a}`).join('\n')}\n\n`;
   }
   
   formatted += `Story phase: ${context.storyArcPhase} (segment ${context.segmentCount})\n`;
   formatted += `Themes: ${context.themes.join(', ')}\n\n`;
+  
+  if (context.narrativeTypeHints.length > 0) {
+    formatted += `Narrative guidance:\n${context.narrativeTypeHints.map(h => `- ${h}`).join('\n')}\n\n`;
+  }
   
   if (context.progressionHints.length > 0) {
     formatted += `Story progression guidance:\n${context.progressionHints.map(h => `- ${h}`).join('\n')}\n`;

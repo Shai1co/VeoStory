@@ -35,6 +35,7 @@ import GenerationStatusBanner from './components/GenerationStatusBanner';
 import ExportOptionsDialog, { ExportResolution } from './components/ExportOptionsDialog';
 import ApiKeysDialog from './components/ApiKeysDialog';
 import { StylePreset } from './config/stylePresets';
+import { NarrativeType, getDefaultNarrativeType, getNarrativeTypeById, NARRATIVE_TYPES } from './config/narrativeTypes';
 import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
 import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
@@ -98,6 +99,14 @@ export default function App() {
     const saved = localStorage.getItem('veo-image-model-preference');
     return (saved as ImageModel) || 'gemini-imagen-3';
   });
+  const [selectedNarrativeType, setSelectedNarrativeType] = useState<NarrativeType>(() => {
+    const saved = localStorage.getItem('veo-narrative-type-preference');
+    if (saved) {
+      const type = getNarrativeTypeById(saved);
+      if (type) return type;
+    }
+    return getDefaultNarrativeType();
+  });
   const [isGlobalMuted, setIsGlobalMuted] = useState<boolean>(() => {
     const saved = localStorage.getItem('veo-global-mute');
     return saved === 'true';
@@ -121,6 +130,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('veo-image-model-preference', selectedImageModel);
   }, [selectedImageModel]);
+
+  // Save narrative type preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('veo-narrative-type-preference', selectedNarrativeType.id);
+  }, [selectedNarrativeType]);
 
   // Save mute preference to localStorage
   useEffect(() => {
@@ -225,6 +239,15 @@ export default function App() {
     }
   }, [videoSegments, currentSegmentId, jumpToSegment]);
 
+  // Cycle through narrative types
+  const cycleNarrativeType = useCallback(() => {
+    if (gameState === GameState.START) return; // Don't cycle on start screen
+    
+    const currentIndex = NARRATIVE_TYPES.findIndex(t => t.id === selectedNarrativeType.id);
+    const nextIndex = (currentIndex + 1) % NARRATIVE_TYPES.length;
+    setSelectedNarrativeType(NARRATIVE_TYPES[nextIndex]);
+  }, [selectedNarrativeType, gameState]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts([
     {
@@ -236,6 +259,11 @@ export default function App() {
       key: 'm',
       description: 'Toggle global mute',
       action: toggleGlobalMute,
+    },
+    {
+      key: 'n',
+      description: 'Cycle narrative type',
+      action: cycleNarrativeType,
     },
     {
       key: '?',
@@ -346,6 +374,7 @@ export default function App() {
         prompt: task.prompt,
         videoBlob,
         lastFrameDataUrl: null,
+        narrativeType: task.narrativeType,
       };
 
       await saveSegment(storedSegment);
@@ -358,6 +387,7 @@ export default function App() {
         lastFrameDataUrl: storedSegment.lastFrameDataUrl,
         choices: storedSegment.choices,
         selectedChoice: storedSegment.selectedChoice,
+        narrativeType: storedSegment.narrativeType,
       };
 
       setVideoSegments((prev) => [...prev, newSegment]);
@@ -466,7 +496,7 @@ export default function App() {
   }, [generationTasks]);
 
   const queueVideoGeneration = useCallback(
-    async (prompt: string, intent: GenerationIntent, lastFrame?: string | null) => {
+    async (prompt: string, intent: GenerationIntent, lastFrame?: string | null, narrativeType?: string) => {
       try {
         const segmentId = getNextSegmentId();
         await enqueueTask({
@@ -476,6 +506,7 @@ export default function App() {
           imageData: lastFrame ?? null,
           imageModel: selectedImageModel,
           intent,
+          narrativeType,
         });
       } catch (error) {
         handleError(error, 'while queueing video generation');
@@ -498,7 +529,7 @@ export default function App() {
     scrollToBottom();
   }, [videoSegments, scrollToBottom]);
 
-  const generateInitialImage = async (prompt: string, stylePreset: StylePreset | null) => {
+  const generateInitialImage = async (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => {
     try {
       setGameState(GameState.GENERATING_IMAGE);
       setLoadingTitle('Enhancing Your Prompt...');
@@ -520,8 +551,8 @@ export default function App() {
       // Build prompt with style preset
       const styledPrompt = buildPrompt(prompt, stylePreset);
       
-      // Enhance the prompt to make it more game-like and adventurous
-      const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true });
+      // Enhance the prompt to make it more game-like and adventurous, with narrative type
+      const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true, narrativeType });
       
       setLoadingTitle('Generating Your Scene Image...');
       
@@ -540,8 +571,10 @@ export default function App() {
     }
   };
 
-  const startNewGame = async (prompt: string, stylePreset: StylePreset | null) => {
-    await generateInitialImage(prompt, stylePreset);
+  const startNewGame = async (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => {
+    // Store the narrative type for this session
+    setSelectedNarrativeType(narrativeType);
+    await generateInitialImage(prompt, stylePreset, narrativeType);
   };
 
   const handleAcceptImage = useCallback(async () => {
@@ -552,11 +585,11 @@ export default function App() {
       setLoadingTitle('Crafting Your First Scene...');
       
       // Start generating the first video with the approved image
-      await queueVideoGeneration(initialPrompt, 'initial', previewImageUrl);
+      await queueVideoGeneration(initialPrompt, 'initial', previewImageUrl, selectedNarrativeType.id);
     } catch (error) {
       handleError(error, 'during video generation');
     }
-  }, [previewImageUrl, initialPrompt, queueVideoGeneration]);
+  }, [previewImageUrl, initialPrompt, queueVideoGeneration, selectedNarrativeType]);
 
   const handleRetryImage = useCallback(async () => {
     if (!initialPrompt || !initialStylePreset) return;
@@ -607,7 +640,7 @@ export default function App() {
       
       try {
         // Build rich story context for prefetch
-        const storyCtx = buildStoryContext(videoSegments);
+        const storyCtx = buildStoryContext(videoSegments, selectedNarrativeType.id);
         const recentChoiceTypes = videoSegments
           .slice(-3)
           .flatMap(s => s.choices || [])
@@ -617,6 +650,7 @@ export default function App() {
           progressionHints: storyCtx.progressionHints,
           recentChoiceTypes,
           storyPhase: storyCtx.storyArcPhase,
+          narrativeType: selectedNarrativeType,
         });
         
         // Store preloaded choices
@@ -656,7 +690,7 @@ export default function App() {
         setLoadingTitle("Imagining What's Next...");
         
         // Build rich story context
-        const storyCtx = buildStoryContext(videoSegments);
+        const storyCtx = buildStoryContext(videoSegments, selectedNarrativeType.id);
         const recentChoiceTypes = videoSegments
           .slice(-3)
           .flatMap(s => s.choices || [])
@@ -666,6 +700,7 @@ export default function App() {
           progressionHints: storyCtx.progressionHints,
           recentChoiceTypes,
           storyPhase: storyCtx.storyArcPhase,
+          narrativeType: selectedNarrativeType,
         });
       }
       
@@ -710,7 +745,7 @@ export default function App() {
 
     try {
       // Build rich story context
-      const storyCtx = buildStoryContext(videoSegments);
+      const storyCtx = buildStoryContext(videoSegments, selectedNarrativeType.id);
       const recentChoiceTypes = videoSegments
         .slice(-3)
         .flatMap(s => s.choices || [])
@@ -723,6 +758,7 @@ export default function App() {
         progressionHints: storyCtx.progressionHints,
         recentChoiceTypes,
         storyPhase: storyCtx.storyArcPhase,
+        narrativeType: selectedNarrativeType,
       });
 
       const blob = await (await fetch(activeSegment.videoUrl)).blob();
@@ -787,11 +823,12 @@ export default function App() {
         const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
         const enhancedChoice = await enhancePrompt(choice, { 
           isInitial: false, 
-          previousContext: storyContext 
+          previousContext: storyContext,
+          narrativeType: selectedNarrativeType
         });
         
         setLoadingTitle('Bringing Your Choice to Life...');
-        await queueVideoGeneration(enhancedChoice, 'continuation', lastSegment.lastFrameDataUrl);
+        await queueVideoGeneration(enhancedChoice, 'continuation', lastSegment.lastFrameDataUrl, selectedNarrativeType.id);
       } catch (error) {
         handleError(error, 'during choice selection');
       }
@@ -1089,6 +1126,17 @@ export default function App() {
                 {selectedModel.includes('fast') ? '⚡' : '✨'}
                 {selectedModel.includes('fast') ? 'Fast' : 'Standard'}
               </span>
+              {/* Narrative type indicator badge (only show when story is active) */}
+              {gameState !== GameState.START && (
+                <button
+                  onClick={cycleNarrativeType}
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-indigo-900/50 border border-indigo-600 rounded-full text-indigo-300 hover:bg-indigo-800/50 transition-colors cursor-pointer"
+                  title={`${selectedNarrativeType.description} (Press 'n' to cycle)`}
+                >
+                  <span>{selectedNarrativeType.icon}</span>
+                  <span>{selectedNarrativeType.name}</span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 md:gap-4">
               {gameState !== GameState.START && (

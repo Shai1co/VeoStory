@@ -5,6 +5,7 @@ export interface VideoSegment {
   lastFrameDataUrl: string | null;
   choices?: string[];
   selectedChoice?: string;
+  narrativeType?: string;
 }
 
 // Type for storing in IndexedDB, which includes the raw video blob
@@ -15,6 +16,7 @@ export interface StoredVideoSegment {
   lastFrameDataUrl: string | null;
   choices?: string[];
   selectedChoice?: string;
+  narrativeType?: string;
 }
 
 export type GenerationIntent = 'initial' | 'continuation';
@@ -39,6 +41,7 @@ export interface GenerationQueueTask {
   startedAt?: number;
   completedAt?: number;
   error?: string;
+  narrativeType?: string;
 }
 
 // Type for serializing a segment for file export
@@ -49,6 +52,7 @@ export interface SerializableSegment {
   lastFrameDataUrl: string | null;
   choices?: string[];
   selectedChoice?: string;
+  narrativeType?: string;
 }
 
 // Type for the overall export file structure
