@@ -8,7 +8,7 @@ Transform your ideas into interactive video adventures powered by cutting-edge A
 
 ## 🌐 Live Demo
 
-**[Launch the App →](https://your-username.github.io/VeoStory/)**
+**[Launch the App →](https://Shai1co.github.io/VeoStory/)**
 
 _Note: You'll need to provide your own API keys to use the app (see below)._
 
@@ -26,7 +26,7 @@ _Note: You'll need to provide your own API keys to use the app (see below)._
 
 ### Option 1: Use the Hosted Version
 
-1. Visit the [live demo](https://your-username.github.io/VeoStory/)
+1. Visit the [live demo](https://Shai1co.github.io/VeoStory/)
 2. Click the **key icon** 🔑 in the header
 3. Enter your API keys (see "Getting API Keys" below)
 4. Start creating!
@@ -37,7 +37,7 @@ _Note: You'll need to provide your own API keys to use the app (see below)._
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/VeoStory.git
+   git clone https://github.com/Shai1co/VeoStory.git
    cd VeoStory
    ```
 
@@ -134,12 +134,12 @@ Want to host your own version? It's easy with GitHub Pages!
 
 4. **Access your site:**
    ```
-   https://your-username.github.io/VeoStory/
+   https://Shai1co.github.io/VeoStory/
    ```
 
 ### Deploy to Netlify/Vercel
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/your-username/VeoStory)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Shai1co/VeoStory)
 
 Or for Vercel:
 ```bash

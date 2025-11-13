@@ -8,8 +8,7 @@ export default defineConfig(({ mode }) => {
     
     return {
       // GitHub Pages deployment configuration
-      // Update 'VeoStory' to match your repository name
-      base: process.env.VITE_BASE_PATH || '/',
+      base: process.env.VITE_BASE_PATH || '/VeoStory/',
       
       server: {
         port: 3000,
