@@ -6,12 +6,12 @@ import { getApiKey } from '../utils/apiKeys';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_IMAGE_MODELS = [
   'gemini-2.5-flash-image',  // Imagen 3 (Nano Banana) - best quality
-  'gemini-2.0-flash-image',  // Fallback
-  'gemini-1.5-flash'         // Legacy fallback
+  'gemini-2.0-flash-image'   // Fallback image-capable model
 ] as const;
 
 interface GeminiImageRequest {
   contents: Array<{
+    role: 'user' | 'system' | 'model';
     parts: Array<{
       text: string;
     }>;
@@ -21,7 +21,6 @@ interface GeminiImageRequest {
     topK: number;
     topP: number;
     maxOutputTokens: number;
-    responseMimeType?: string;
   };
 }
 
@@ -69,6 +68,7 @@ export async function generateGeminiImage(
   const requestBody: GeminiImageRequest = {
     contents: [
       {
+        role: 'user',
         parts: [
           {
             text: enhancedPrompt
@@ -80,8 +80,7 @@ export async function generateGeminiImage(
       temperature: 0.7,
       topK: 40,
       topP: 0.95,
-      maxOutputTokens: 1024,
-      responseMimeType: 'image/png'
+      maxOutputTokens: 1024
     }
   };
 

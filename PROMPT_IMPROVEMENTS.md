@@ -4,31 +4,39 @@
 
 The random AI prompt generation system has been **completely overhauled** to provide maximum variety, eliminate repetition, and generate shorter, punchier prompts.
 
-## Latest Updates (Anti-Repetition & Brevity Focus)
+## Latest Updates (Maximum Creative Freedom)
 
-### 🎯 **Aggressive Anti-Repetition System**
-- **Tracks ALL descriptor words** used in prompts (40 most recent)
-- **Explicit warning** sent to AI: "⚠️ CRITICAL: DO NOT USE these overused words: [list]"
-- **Automatic rejection** of prompts with 2+ overused descriptors
-- **Hardcoded avoid list**: "exiled", "cursed", "haunted", "rogue", "enigmatic" 
-- **Deduplication** in avoid list shown to AI
+### 🎨 **Complete Creative Freedom for AI**
+- **NO prescriptive word lists** - AI chooses its own vocabulary naturally
+- **NO rigid format requirements** - AI can structure prompts however it wants
+- **Simple principles**: "Be creative and unpredictable. Mix any genres. Surprise me."
+- **Only constraint**: Avoid recently used words (tracked automatically)
 
-### ✂️ **Shorter, Simpler Prompts**
-- **Character limit reduced**: 220 → **150 characters**
-- **New instruction focus**: "SHORT, PUNCHY, SIMPLE, DIRECT. No fluff."
-- **Simplified format**: "[Character] must [goal]. [Location], [problem]."
-- **Cleaner examples**: Removed verbose, convoluted prompts
+### 🎯 **Smart Word Tracking**
+- **Automatically extracts** first 5-6 meaningful words from each prompt
+- **Tracks 40 most recent** descriptive words used
+- **Shows AI the last 20** to avoid: "DO NOT repeat these recently used words: [list]"
+- **No hardcoded lists** - learns naturally from what it generates
 
-### 🎨 **Fresh Character Variety**
-- **New descriptor suggestions**: weathered, scarred, paranoid, broken, feral, elegant, scattered, methodical, impulsive, stoic, volatile, weary, fierce, cunning, naive, jaded, zealous, pragmatic, idealistic, sardonic, melancholic
-- **Simpler roles**: mercenary, courier, scavenger, medic, hacker, pilot, smuggler, detective, thief, scholar, engineer, soldier, merchant, nomad, fugitive, guardian, hunter, outcast, wanderer
-- **Explicitly warns against**: cursed, exiled, haunted, rogue, warrior, mage
+### ✂️ **Shorter, Punchier Prompts**
+- **Character limit**: 220 → **150 characters**
+- **Instruction**: "Create a short adventure prompt. Be creative and unpredictable."
+- **No verbose instructions** - just essential guidance
+- **No example formats** - AI chooses its own structure
 
 ### 🔥 **Maximum AI Randomization**
-- **Temperature**: 1.3 → **1.5** (maximum creativity)
+- **Temperature**: 1.3 → **1.5** (extreme creativity)
 - **TopK**: 64 → **80**
 - **TopP**: 0.98 → **0.99**
 - **Unique variety seed** per request
+
+### 🚫 **What We DON'T Tell the AI Anymore**
+- ❌ No specific character descriptors to use
+- ❌ No specific roles or archetypes
+- ❌ No format templates
+- ❌ No example sentence structures
+- ❌ No genre suggestions
+- ✅ Just: avoid repetition, be creative, surprise us
 
 ## Key Improvements
 
