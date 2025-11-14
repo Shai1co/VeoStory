@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MODEL_METADATA } from '../config/modelMetadata';
-import { VideoModel, ImageModel } from '../types';
+import { VideoModel, ImageModel, LLMModel } from '../types';
 import ModelSelector from './ModelSelector';
 import ImageModelSelector from './ImageModelSelector';
+import LLMModelSelector from './LLMModelSelector';
 
 interface StoryModelControlsProps {
   selectedModel: VideoModel;
   onModelChange: (model: VideoModel) => void;
+  selectedLlmModel: LLMModel;
+  onLlmModelChange: (model: LLMModel) => void;
   selectedImageModel: ImageModel;
   onImageModelChange: (model: ImageModel) => void;
   pendingGenerationCount: number;
@@ -18,6 +21,8 @@ const CLOSE_DELAY_MS = 150;
 const StoryModelControls: React.FC<StoryModelControlsProps> = ({
   selectedModel,
   onModelChange,
+  selectedLlmModel,
+  onLlmModelChange,
   selectedImageModel,
   onImageModelChange,
   pendingGenerationCount,
@@ -122,7 +127,15 @@ const StoryModelControls: React.FC<StoryModelControlsProps> = ({
                 onModelChange={handleModelChange}
                 disabled={disabled}
               />
-              
+
+              <div className="border-t border-slate-700 pt-6">
+                <LLMModelSelector
+                  selectedModel={selectedLlmModel}
+                  onModelChange={onLlmModelChange}
+                  disabled={disabled}
+                />
+              </div>
+
               <div className="border-t border-slate-700 pt-6">
                 <ImageModelSelector
                   selectedModel={selectedImageModel}

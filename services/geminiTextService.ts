@@ -12,17 +12,31 @@ import {
   shouldRejectGeneratedPrompt,
 } from '../utils/randomPromptBlueprint';
 import { getApiKey } from '../utils/apiKeys';
+import { LLMModel } from '../types';
+import { DEFAULT_LLM_MODEL } from '../config/llmModelMetadata';
 
 // Gemini API configuration
 const GEMINI_API_VERSION = 'v1beta';
 const GEMINI_API_BASE = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}`;
-const DEFAULT_GEMINI_TEXT_MODELS = [
+const DEFAULT_GEMINI_TEXT_MODELS: readonly LLMModel[] = [
   'gemini-2.0-flash', // Try 2.0 first - may not have thinking token issues
   'gemini-2.0-flash-lite',
   'gemini-2.5-flash',
   'gemini-flash-latest',
   'gemini-2.5-pro'
 ] as const;
+const FALLBACK_LLM_MODEL: LLMModel = DEFAULT_LLM_MODEL;
+
+const buildModelCandidates = (preferredModel?: LLMModel): string[] => {
+  const envModel = process.env.GEMINI_TEXT_MODEL?.trim();
+  return [
+    preferredModel,
+    envModel,
+    ...DEFAULT_GEMINI_TEXT_MODELS
+  ]
+    .filter((modelId): modelId is string => Boolean(modelId))
+    .filter((modelId, index, list) => list.indexOf(modelId) === index);
+};
 
 // API timeout configuration
 const API_TIMEOUT_MS = 10000; // 10 second timeout
@@ -67,13 +81,9 @@ interface GeminiTextResponse {
 /**
  * Generate a random creative story prompt using Gemini
  */
-export async function getRandomPrompt(): Promise<string> {
+export async function getRandomPrompt(preferredModel?: LLMModel): Promise<string> {
   const apiKey = getApiKey('GEMINI_API_KEY');
-  const configuredModel = process.env.GEMINI_TEXT_MODEL?.trim();
-  const modelCandidates = [
-    ...(configuredModel ? [configuredModel] : []),
-    ...DEFAULT_GEMINI_TEXT_MODELS
-  ].filter((modelId, index, list) => modelId && list.indexOf(modelId) === index);
+  const modelCandidates = buildModelCandidates(preferredModel ?? FALLBACK_LLM_MODEL);
   const notFoundErrors: GeminiModelNotFoundError[] = [];
   let lastError: Error | null = null;
 
@@ -154,13 +164,9 @@ export async function getRandomPrompt(): Promise<string> {
 /**
  * Expand an existing prompt to make it more detailed and robust
  */
-export async function expandPrompt(existingPrompt: string): Promise<string> {
+export async function expandPrompt(existingPrompt: string, preferredModel?: LLMModel): Promise<string> {
   const apiKey = getApiKey('GEMINI_API_KEY');
-  const configuredModel = process.env.GEMINI_TEXT_MODEL?.trim();
-  const modelCandidates = [
-    ...(configuredModel ? [configuredModel] : []),
-    ...DEFAULT_GEMINI_TEXT_MODELS
-  ].filter((modelId, index, list) => modelId && list.indexOf(modelId) === index);
+  const modelCandidates = buildModelCandidates(preferredModel ?? FALLBACK_LLM_MODEL);
   const notFoundErrors: GeminiModelNotFoundError[] = [];
   let lastError: Error | null = null;
 

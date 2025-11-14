@@ -107,6 +107,16 @@ export type ImageModel =
   | 'flux-schnell'
   | 'gemini-imagen-3';
 
+// Language model types (Gemini versions)
+export type LLMModel =
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-pro'
+  | 'gemini-flash-latest'
+  | 'gemini-2.0-flash'
+  | 'gemini-2.0-flash-lite';
+
+export type LLMProvider = 'gemini';
+
 // Provider categories
 export type VideoProvider = 'veo' | 'runway' | 'stable-diffusion' | 'replicate';
 
@@ -140,6 +150,19 @@ export interface VideoModelMetadata {
   limitations?: string[];
   requiresApiKey?: string; // Environment variable name for API key
   estimatedSeconds?: number; // Estimated generation time in seconds for ETA calculation
+}
+
+// LLM metadata for UI display
+export interface LLMModelMetadata {
+  id: LLMModel;
+  provider: LLMProvider;
+  name: string;
+  description: string;
+  icon: string;
+  latency: string;
+  costLevel: number;
+  strengths: string[];
+  recommendedUse: string;
 }
 
 export enum GameState {

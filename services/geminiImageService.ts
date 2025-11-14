@@ -5,8 +5,9 @@ import { getApiKey } from '../utils/apiKeys';
 // Gemini API configuration
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_IMAGE_MODELS = [
-  'gemini-2.5-flash-image',  // Imagen 3 (Nano Banana) - best quality
-  'gemini-2.0-flash-image'   // Fallback image-capable model
+  'gemini-2.5-flash',  // Latest flash model - good for multimodal
+  'gemini-2.0-flash',  // Fallback flash model
+  'gemini-flash-latest' // Always latest available
 ] as const;
 
 interface GeminiImageRequest {

@@ -10,6 +10,7 @@ import {
   GenerationIntent,
   VideoModel,
   ImageModel,
+  LLMModel,
 } from './types';
 import useGenerationQueue from './hooks/useGenerationQueue';
 import { generateChoices } from './services/veoService';
@@ -30,6 +31,7 @@ import WelcomeTooltip from './components/WelcomeTooltip';
 import JumpToLatest from './components/JumpToLatest';
 import ModelSelector from './components/ModelSelector';
 import ImageModelSelector from './components/ImageModelSelector';
+import LLMModelSelector from './components/LLMModelSelector';
 import ImagePreview from './components/ImagePreview';
 import StoryModelControls from './components/StoryModelControls';
 import GenerationStatusBanner from './components/GenerationStatusBanner';
@@ -40,8 +42,10 @@ import { NarrativeType, getDefaultNarrativeType, getNarrativeTypeById, NARRATIVE
 import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
 import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
+import { getReferenceFrameFromPreviousChoice } from './utils/referenceFrame';
 import { hasRequiredApiKeys } from './utils/apiKeys';
 import { trackGameState, trackStoryEvent, trackChoiceSelection, trackVideoGeneration } from './utils/analytics';
+import { DEFAULT_LLM_MODEL } from './config/llmModelMetadata';
 
 const SCROLL_TO_BOTTOM_DELAY_MS = 300;
 const SCROLL_TO_BOTTOM_RETRY_DELAY_MS = 600; // Additional scroll after a longer delay to ensure it works
@@ -49,6 +53,7 @@ const CHOICE_REGEN_LOADING_TITLE = 'Discovering Alternate Paths...';
 const CHOICE_REGENERATION_FAILURE_MESSAGE = 'Could not find fresh choices. Please try again.';
 const CHOICE_REGENERATION_MISSING_FRAME_MESSAGE = 'Unable to regenerate choices because the reference frame is unavailable.';
 const CUSTOM_PROMPT_EMPTY_MESSAGE = 'Please enter a prompt before continuing.';
+const LLM_MODEL_STORAGE_KEY = 'veo-llm-model-preference';
 
 export default function App() {
   const [gameState, setGameState] = useState(GameState.START);
@@ -102,6 +107,10 @@ export default function App() {
     const saved = localStorage.getItem('veo-image-model-preference');
     return (saved as ImageModel) || 'gemini-imagen-3';
   });
+  const [selectedLlmModel, setSelectedLlmModel] = useState<LLMModel>(() => {
+    const saved = localStorage.getItem(LLM_MODEL_STORAGE_KEY);
+    return (saved as LLMModel) || DEFAULT_LLM_MODEL;
+  });
   const [selectedNarrativeType, setSelectedNarrativeType] = useState<NarrativeType>(() => {
     const saved = localStorage.getItem('veo-narrative-type-preference');
     if (saved) {
@@ -133,6 +142,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('veo-image-model-preference', selectedImageModel);
   }, [selectedImageModel]);
+
+  useEffect(() => {
+    localStorage.setItem(LLM_MODEL_STORAGE_KEY, selectedLlmModel);
+  }, [selectedLlmModel]);
 
   // Save narrative type preference to localStorage
   useEffect(() => {
@@ -626,6 +639,7 @@ export default function App() {
     console.log('🎮 [DEBUG] App: Style preset:', stylePreset?.name || 'none');
     console.log('🎮 [DEBUG] App: Narrative type:', narrativeType.id);
     console.log('🎮 [DEBUG] App: Selected image model:', selectedImageModel);
+    console.log('🎮 [DEBUG] App: Selected LLM model:', selectedLlmModel);
 
     try {
       console.log('🎮 [DEBUG] App: Setting game state to GENERATING_IMAGE');
@@ -656,7 +670,7 @@ export default function App() {
       
       // Enhance the prompt to make it more game-like and adventurous, with narrative type
       console.log('🎮 [DEBUG] App: Enhancing prompt...');
-      const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true, narrativeType });
+      const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true, narrativeType, llmModel: selectedLlmModel });
       console.log('🎮 [DEBUG] App: Enhanced prompt length:', enhancedPrompt.length);
       
       setLoadingTitle('Generating Your Scene Image...');
@@ -692,6 +706,7 @@ export default function App() {
       has_style_preset: !!stylePreset,
       model: selectedModel,
       image_model: selectedImageModel,
+      llm_model: selectedLlmModel,
     });
 
     await generateInitialImage(prompt, stylePreset, narrativeType);
@@ -733,13 +748,13 @@ export default function App() {
       }
       
       // Regenerate the image
-      await generateInitialImage(initialPrompt, initialStylePreset);
+      await generateInitialImage(initialPrompt, initialStylePreset, selectedNarrativeType);
     } catch (error) {
       handleError(error, 'during image retry');
     } finally {
       setIsRetryingImage(false);
     }
-  }, [initialPrompt, initialStylePreset, previewImageUrl]);
+  }, [initialPrompt, initialStylePreset, previewImageUrl, selectedNarrativeType]);
 
   const handleDiscardImage = useCallback(() => {
     // Revoke the image URL to free memory
@@ -777,11 +792,12 @@ export default function App() {
           .flatMap(s => s.choices || [])
           .map(categorizeChoice);
         
-        const newChoices = await generateChoices(storyCtx.fullNarrative, undefined, {
+      const newChoices = await generateChoices(storyCtx.fullNarrative, undefined, {
           progressionHints: storyCtx.progressionHints,
           recentChoiceTypes,
           storyPhase: storyCtx.storyArcPhase,
           narrativeType: selectedNarrativeType,
+        llmModel: selectedLlmModel,
         });
         
         // Store preloaded choices
@@ -794,7 +810,7 @@ export default function App() {
         setIsPrefetchingChoices(false);
       }
     }
-  }, [videoSegments, currentSegmentId, isPrefetchingChoices, preloadedChoices]);
+  }, [videoSegments, currentSegmentId, isPrefetchingChoices, preloadedChoices, selectedNarrativeType, selectedLlmModel]);
 
   const handleVideoEnd = useCallback(async (videoElement: HTMLVideoElement) => {
     const lastSegment = videoSegments[videoSegments.length - 1];
@@ -832,6 +848,7 @@ export default function App() {
           recentChoiceTypes,
           storyPhase: storyCtx.storyArcPhase,
           narrativeType: selectedNarrativeType,
+          llmModel: selectedLlmModel,
         });
       }
       
@@ -851,7 +868,7 @@ export default function App() {
     } catch (error) {
       handleError(error, 'during video end processing');
     }
-  }, [videoSegments, currentSegmentId, preloadedChoices]);
+  }, [videoSegments, currentSegmentId, preloadedChoices, selectedNarrativeType, selectedLlmModel]);
 
   const handleRegenerateChoices = useCallback(async () => {
     if (gameState !== GameState.CHOICES) {
@@ -890,6 +907,7 @@ export default function App() {
         recentChoiceTypes,
         storyPhase: storyCtx.storyArcPhase,
         narrativeType: selectedNarrativeType,
+        llmModel: selectedLlmModel,
       });
 
       const blob = await (await fetch(activeSegment.videoUrl)).blob();
@@ -928,6 +946,8 @@ export default function App() {
     setChoiceRegenerationError,
     setGameState,
     setLoadingTitle,
+    selectedNarrativeType,
+    selectedLlmModel,
   ]);
 
   const handleChoiceSelected = async (choice: string) => {
@@ -959,7 +979,8 @@ export default function App() {
         const enhancedChoice = await enhancePrompt(choice, {
           isInitial: false,
           previousContext: storyContext,
-          narrativeType: selectedNarrativeType
+          narrativeType: selectedNarrativeType,
+          llmModel: selectedLlmModel,
         });
 
         setLoadingTitle('Bringing Your Choice to Life...');
@@ -1234,12 +1255,27 @@ export default function App() {
     const segment = videoSegments.find(s => s.id === segmentId);
     if (!segment) return;
 
+    const {
+      frameDataUrl: previousChoiceFrame,
+      segmentId: referenceSegmentId,
+    } = getReferenceFrameFromPreviousChoice(videoSegments, segmentId);
+    const fallbackFrame = segment.lastFrameDataUrl ?? null;
+    const imageData = previousChoiceFrame ?? fallbackFrame;
+
+    if (!imageData) {
+      console.warn('⚠️ No reference frame available for regeneration; proceeding without image context.');
+    } else if (!previousChoiceFrame && fallbackFrame) {
+      console.warn('⚠️ Previous choice frame missing; falling back to current segment frame.');
+    } else if (referenceSegmentId !== null) {
+      console.log(`🔁 Using reference frame from segment ${referenceSegmentId} for regeneration.`);
+    }
+
     // Create a new generation task for this segment
     await enqueueTask({
       segmentId: segment.id,
       prompt: segment.prompt,
       model: selectedModel,
-      imageData: segment.lastFrameDataUrl,
+      imageData,
       intent: 'continuation', // Use continuation since we have context
       narrativeType: segment.narrativeType,
     });
@@ -1387,6 +1423,8 @@ export default function App() {
                 <StoryModelControls
                   selectedModel={selectedModel}
                   onModelChange={setSelectedModel}
+                  selectedLlmModel={selectedLlmModel}
+                  onLlmModelChange={setSelectedLlmModel}
                   selectedImageModel={selectedImageModel}
                   onImageModelChange={setSelectedImageModel}
                   pendingGenerationCount={pendingGenerationCount}
@@ -1456,7 +1494,7 @@ export default function App() {
 
             {gameState === GameState.START && (
                 <div className="flex flex-col items-center w-full">
-                  <PromptInput onSubmit={startNewGame} disabled={false} />
+                  <PromptInput onSubmit={startNewGame} disabled={false} llmModel={selectedLlmModel} />
                   
                   <div className="w-full max-w-3xl mx-auto mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-lg space-y-6">
                     <ModelSelector
@@ -1464,6 +1502,14 @@ export default function App() {
                       onModelChange={setSelectedModel}
                       disabled={false}
                     />
+
+                    <div className="border-t border-slate-700 pt-6">
+                      <LLMModelSelector
+                        selectedModel={selectedLlmModel}
+                        onModelChange={setSelectedLlmModel}
+                        disabled={false}
+                      />
+                    </div>
                     
                     <div className="border-t border-slate-700 pt-6">
                       <ImageModelSelector

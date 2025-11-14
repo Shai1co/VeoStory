@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { STYLE_PRESETS, StylePreset } from '../config/stylePresets';
 import { NARRATIVE_TYPES, NarrativeType, getDefaultNarrativeType } from '../config/narrativeTypes';
 import { getRandomPrompt, isGeminiTextAvailable, expandPrompt } from '../services/geminiTextService';
+import { LLMModel } from '../types';
 import ManualPromptBuilder from './ManualPromptBuilder';
 import NarrativeTypeSelector from './NarrativeTypeSelector';
 import {
@@ -16,6 +17,7 @@ import {
 interface PromptInputProps {
   onSubmit: (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => void;
   disabled: boolean;
+  llmModel: LLMModel;
 }
 
 // UI Constants
@@ -23,7 +25,7 @@ const MIN_TEXTAREA_HEIGHT = 120;
 const MAX_TEXTAREA_HEIGHT = 400;
 const RECOMMENDED_PROMPT_LENGTH = 500;
 
-const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
+const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled, llmModel }) => {
   const [prompt, setPrompt] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<StylePreset | null>(STYLE_PRESETS[0]);
   const [selectedNarrativeType, setSelectedNarrativeType] = useState<NarrativeType>(getDefaultNarrativeType());
@@ -78,7 +80,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
     try {
       // Try to use Gemini API for creative random prompts
       if (isGeminiTextAvailable()) {
-        const randomPrompt = await getRandomPrompt();
+        const randomPrompt = await getRandomPrompt(llmModel);
         setPrompt(randomPrompt);
       } else {
         const manualPrompt = createManualRandomPrompt();
@@ -117,7 +119,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSubmit, disabled }) => {
       setOriginalPromptBeforeExpansion(prompt);
       
       // Expand the prompt using Gemini
-      const expandedPrompt = await expandPrompt(prompt);
+      const expandedPrompt = await expandPrompt(prompt, llmModel);
       setPrompt(expandedPrompt);
     } catch (error) {
       console.error('Failed to expand prompt:', error);

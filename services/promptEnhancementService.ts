@@ -6,6 +6,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { getApiKey } from '../utils/apiKeys';
 import { NarrativeType } from '../config/narrativeTypes';
+import { LLMModel } from '../types';
+import { DEFAULT_LLM_MODEL } from '../config/llmModelMetadata';
 
 const getAIClient = () => {
   console.log('✨ [DEBUG] PromptEnhancement: Getting Gemini API key...');
@@ -49,6 +51,7 @@ export async function enhancePrompt(
     isInitial?: boolean;
     previousContext?: string;
     narrativeType?: NarrativeType;
+    llmModel?: LLMModel;
   }
 ): Promise<string> {
   console.log('✨ [DEBUG] PromptEnhancement: Starting prompt enhancement');
@@ -112,8 +115,9 @@ Now enhance this next scene: "${userPrompt}"`;
     console.log('✨ [DEBUG] PromptEnhancement: System prompt length:', systemPrompt.length);
     console.log('✨ [DEBUG] PromptEnhancement: Calling Gemini API...');
 
+    const modelId = context?.llmModel ?? DEFAULT_LLM_MODEL;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: modelId,
       contents: systemPrompt,
       config: {
         temperature: 0.8, // Creative but controlled
@@ -180,7 +184,11 @@ Now enhance this next scene: "${userPrompt}"`;
 /**
  * Enhances choice options to be more action-oriented and game-like
  */
-export async function enhanceChoices(choices: string[], storyContext: string): Promise<string[]> {
+export async function enhanceChoices(
+  choices: string[],
+  storyContext: string,
+  options?: { llmModel?: LLMModel }
+): Promise<string[]> {
   const ai = getAIClient();
   
   const prompt = `You are a game scenario writer. Make these story choices more exciting and action-oriented.
@@ -201,8 +209,9 @@ REQUIREMENTS:
 Return ONLY a JSON array of 3 enhanced choices, nothing else.`;
 
   try {
+    const modelId = options?.llmModel ?? DEFAULT_LLM_MODEL;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: modelId,
       contents: prompt,
       config: {
         responseMimeType: "application/json",

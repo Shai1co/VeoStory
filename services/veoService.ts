@@ -6,6 +6,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { getApiKey } from '../utils/apiKeys';
 import { NarrativeType, NarrativeTypeId } from '../config/narrativeTypes';
+import { LLMModel } from '../types';
+import { DEFAULT_LLM_MODEL } from '../config/llmModelMetadata';
 
 const getAIClient = () => {
   const apiKey = getApiKey('GEMINI_API_KEY');
@@ -70,6 +72,7 @@ export interface ChoiceGenerationOptions {
   recentChoiceTypes?: string[];
   storyPhase?: string;
   narrativeType?: NarrativeType;
+  llmModel?: LLMModel;
 }
 
 const NARRATIVE_CHOICE_DIRECTIVES: Record<NarrativeTypeId, string[]> = {
@@ -247,8 +250,9 @@ ${hints.map(h => `- ${h}`).join('\n')}\n`;
   }
 
   try {
+    const llmModel = options?.llmModel ?? DEFAULT_LLM_MODEL;
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: llmModel,
       contents: [
         {
           role: 'user',
