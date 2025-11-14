@@ -15,6 +15,7 @@ interface EnqueueGenerationTaskInput {
   imageData?: string | null;
   imageModel?: ImageModel;
   intent: GenerationIntent;
+  narrativeType?: string;
 }
 
 interface UseGenerationQueueOptions {
@@ -186,7 +187,21 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
   }, [persistTask, tasks]);
 
   const processTask = useCallback(async (task: GenerationQueueTask) => {
+    console.log('🔄 [DEBUG] Queue: Starting task processing');
+    console.log('🔄 [DEBUG] Queue: Task details:', {
+      id: task.id,
+      segmentId: task.segmentId,
+      model: task.model,
+      intent: task.intent,
+      promptLength: task.prompt.length,
+      hasImageData: !!task.imageData,
+      imageModel: task.imageModel
+    });
+
     try {
+      console.log('🔄 [DEBUG] Queue: Calling generateVideoUnified...');
+      const startTime = Date.now();
+
       const response = await generateVideoUnified({
         prompt: task.prompt,
         model: task.model,
@@ -194,18 +209,28 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
         imageModel: task.imageModel,
       });
 
+      const generationTime = Math.round((Date.now() - startTime) / 1000);
+      console.log('✅ [DEBUG] Queue: Video generation completed in', generationTime, 'seconds');
+      console.log('✅ [DEBUG] Queue: Response blob size:', response.videoBlob.size, 'bytes');
+
       if (shouldIgnoreResult(task.id, cancelledTaskIdsRef)) {
+        console.log('⚠️ [DEBUG] Queue: Task was cancelled, ignoring result');
         clearIgnoreFlag(task.id, cancelledTaskIdsRef);
         setTasks((prev) => prev.filter((queuedTask) => queuedTask.id !== task.id));
         await removeTask(task.id);
         return;
       }
 
+      console.log('🔄 [DEBUG] Queue: Calling onTaskSuccess callback...');
       await onTaskSuccess(task, response);
       setTasks((prev) => prev.filter((queuedTask) => queuedTask.id !== task.id));
       await removeTask(task.id);
+      console.log('✅ [DEBUG] Queue: Task completed successfully');
     } catch (error) {
+      console.log('❌ [DEBUG] Queue: Task failed with error:', error);
+
       if (shouldIgnoreResult(task.id, cancelledTaskIdsRef)) {
+        console.log('⚠️ [DEBUG] Queue: Task was cancelled, ignoring error');
         clearIgnoreFlag(task.id, cancelledTaskIdsRef);
         setTasks((prev) => prev.filter((queuedTask) => queuedTask.id !== task.id));
         await removeTask(task.id);
@@ -213,24 +238,37 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
       }
 
       const normalizedError = error instanceof Error ? error : new Error(String(error));
+      console.error('❌ [DEBUG] Queue: Normalized error:', normalizedError.message);
+
       const failedTask = completeTask(task, 'failed', normalizedError.message);
       setTasks((prev) => prev.map((queuedTask) => (queuedTask.id === task.id ? failedTask : queuedTask)));
       await persistTask(failedTask);
+
       if (onTaskError) {
+        console.log('🔄 [DEBUG] Queue: Calling onTaskError callback...');
         await onTaskError(failedTask, normalizedError);
       }
+
+      console.log('❌ [DEBUG] Queue: Task marked as failed');
     } finally {
+      console.log('🔄 [DEBUG] Queue: Task processing finished, clearing active task');
       activeTaskRef.current = null;
     }
   }, [onTaskError, onTaskSuccess, persistTask, removeTask]);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG] Queue: Effect triggered, checking for tasks to process');
+    console.log('🔄 [DEBUG] Queue: Current tasks:', tasks.map(t => ({ id: t.id, status: t.status })));
+    console.log('🔄 [DEBUG] Queue: Active task:', activeTaskRef.current?.id || 'none');
+
     if (activeTaskRef.current) {
+      console.log('🔄 [DEBUG] Queue: Active task already exists, skipping');
       return;
     }
 
     const runningTask = tasks.find((task) => task.status === 'running');
     if (runningTask) {
+      console.log('🔄 [DEBUG] Queue: Found running task, setting as active:', runningTask.id);
       activeTaskRef.current = runningTask;
       void processTask(runningTask);
       return;
@@ -238,9 +276,11 @@ const useGenerationQueue = (options: UseGenerationQueueOptions): UseGenerationQu
 
     const queuedTask = tasks.find((task) => task.status === 'queued');
     if (!queuedTask) {
+      console.log('🔄 [DEBUG] Queue: No queued tasks found');
       return;
     }
 
+    console.log('🔄 [DEBUG] Queue: Found queued task, promoting to running:', queuedTask.id);
     const promoted = promoteToRunning(queuedTask);
     activeTaskRef.current = promoted;
     setTasks((prev) => prev.map((task) => (task.id === promoted.id ? promoted : task)));

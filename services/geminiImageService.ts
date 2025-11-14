@@ -50,14 +50,20 @@ export async function generateGeminiImage(
     quality?: 'standard' | 'high';
   }
 ): Promise<string> {
+  console.log('🎨 [DEBUG] Starting Gemini image generation...');
+  console.log('🎨 [DEBUG] Prompt:', prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''));
+  console.log('🎨 [DEBUG] Options:', options);
+
   const apiKey = getApiKey('GEMINI_API_KEY');
-  
+
   if (!apiKey) {
+    console.error('❌ [DEBUG] GEMINI_API_KEY not configured');
     throw new Error('GEMINI_API_KEY is not set. Please configure your API keys.');
   }
 
   // Build the prompt with style and quality instructions
   const enhancedPrompt = buildImagePrompt(prompt, options);
+  console.log('🎨 [DEBUG] Enhanced prompt length:', enhancedPrompt.length);
 
   const requestBody: GeminiImageRequest = {
     contents: [
@@ -78,11 +84,12 @@ export async function generateGeminiImage(
   };
 
   let lastError: Error | null = null;
+  console.log('🎨 [DEBUG] Available models to try:', GEMINI_IMAGE_MODELS);
 
   // Try models in order of preference
   for (const modelName of GEMINI_IMAGE_MODELS) {
     try {
-      console.log(`🎨 Generating image with ${modelName}:`, { prompt, options });
+      console.log(`🎨 [DEBUG] Trying model: ${modelName}`);
 
       const response = await fetch(`${GEMINI_API_BASE}/models/${modelName}:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -92,46 +99,57 @@ export async function generateGeminiImage(
         body: JSON.stringify(requestBody)
       });
 
+      console.log(`🎨 [DEBUG] ${modelName} API response status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = `${response.status} - ${errorData.error?.message || response.statusText}`;
-        
+
         // If model not found, try next one
         if (response.status === 404) {
-          console.warn(`Model ${modelName} not found, trying next...`);
+          console.warn(`⚠️ [DEBUG] Model ${modelName} not found, trying next...`);
           lastError = new Error(errorMsg);
           continue;
         }
-        
+
+        console.error(`❌ [DEBUG] ${modelName} API error:`, errorMsg);
         throw new Error(`Gemini Image error: ${errorMsg}`);
       }
 
       const result: GeminiImageResponse = await response.json();
-      
+      console.log(`🎨 [DEBUG] ${modelName} response received, candidates:`, result.candidates?.length || 0);
+
       if (!result.candidates || result.candidates.length === 0) {
+        console.error(`❌ [DEBUG] ${modelName} returned no candidates`);
         throw new Error('Gemini image generation failed to return a result.');
       }
 
       const candidate = result.candidates[0];
+      console.log(`🎨 [DEBUG] ${modelName} candidate parts:`, candidate.content.parts?.length || 0);
+
       if (!candidate.content.parts || candidate.content.parts.length === 0) {
+        console.error(`❌ [DEBUG] ${modelName} returned no content parts`);
         throw new Error('Gemini image generation failed to return image data.');
       }
 
       // Look for inline data (base64 image)
       const imagePart = candidate.content.parts.find(part => part.inlineData);
       if (!imagePart?.inlineData) {
+        console.error(`❌ [DEBUG] ${modelName} returned no inline data`);
+        console.error(`❌ [DEBUG] Available parts:`, candidate.content.parts);
         throw new Error('Gemini did not return image data in the expected format.');
       }
 
       const { mimeType, data } = imagePart.inlineData;
-      
-      console.log(`✅ Image generated successfully with ${modelName}`);
-      
+      console.log(`✅ [DEBUG] ${modelName} image generated successfully, type: ${mimeType}, data size: ${data.length} chars`);
+
       // Return as data URL
-      return `data:${mimeType};base64,${data}`;
-      
+      const dataUrl = `data:${mimeType};base64,${data}`;
+      console.log('🎨 [DEBUG] Gemini image generation completed');
+      return dataUrl;
+
     } catch (error) {
-      console.warn(`Failed with ${modelName}:`, error);
+      console.warn(`⚠️ [DEBUG] Failed with ${modelName}:`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
       // Try next model
       continue;
@@ -139,6 +157,7 @@ export async function generateGeminiImage(
   }
 
   // All models failed
+  console.error('❌ [DEBUG] All Gemini models failed');
   throw lastError || new Error('Failed to generate image with all available Gemini models');
 }
 

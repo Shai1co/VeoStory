@@ -313,16 +313,25 @@ export async function createReplicatePrediction(
 export async function pollReplicatePrediction(predictionId: string): Promise<ReplicatePrediction> {
   const apiKey = getApiKey('REPLICATE_API_KEY');
   if (!apiKey) {
+    console.error('❌ [DEBUG] REPLICATE_API_KEY not configured for polling');
     throw new Error('REPLICATE_API_KEY is not set. Please configure your API keys.');
   }
 
   let attempts = 0;
+  const startTime = Date.now();
 
-  console.log('⏳ Polling Replicate prediction:', predictionId);
+  console.log('⏳ [DEBUG] Starting polling for Replicate prediction:', predictionId);
+  console.log('⏳ [DEBUG] Max attempts:', MAX_POLL_ATTEMPTS, 'Poll interval:', POLL_INTERVAL_MS + 'ms');
 
   while (attempts < MAX_POLL_ATTEMPTS) {
-    // Wait before polling
-    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+    // Wait before polling (except first attempt)
+    if (attempts > 0) {
+      console.log(`⏳ [DEBUG] Waiting ${POLL_INTERVAL_MS}ms before next poll attempt...`);
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+    }
+
+    const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+    console.log(`🔄 [DEBUG] Poll attempt ${attempts + 1}/${MAX_POLL_ATTEMPTS} (elapsed: ${elapsedTime}s)`);
 
     const response = await fetch(`${REPLICATE_API_BASE}/predictions/${predictionId}`, {
       method: 'GET',
@@ -332,34 +341,49 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
       }
     });
 
+    console.log(`🔄 [DEBUG] Poll response status: ${response.status}`);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Poll failed:', response.status, errorText);
+      console.error('❌ [DEBUG] Poll request failed:', response.status, errorText);
       throw new Error(`Failed to poll Replicate prediction: ${response.status} ${response.statusText}`);
     }
 
     const prediction: ReplicatePrediction = await response.json();
-    
-    console.log(`🔄 Polling (attempt ${attempts + 1}/${MAX_POLL_ATTEMPTS}):`, prediction.status);
+
+    console.log(`🔄 [DEBUG] Prediction status: ${prediction.status}`);
+    if (prediction.status !== 'starting' && prediction.status !== 'processing') {
+      console.log(`🔄 [DEBUG] Prediction details:`, {
+        status: prediction.status,
+        error: prediction.error,
+        hasOutput: !!prediction.output,
+        metrics: prediction.metrics
+      });
+    }
 
     if (prediction.status === 'succeeded') {
-      console.log('✅ Replicate prediction succeeded!');
+      const totalTime = Math.round((Date.now() - startTime) / 1000);
+      console.log('✅ [DEBUG] Replicate prediction succeeded!');
+      console.log(`⏱️ [DEBUG] Total time: ${totalTime}s`);
       if (prediction.metrics?.predict_time) {
-        console.log(`⏱️  Generation time: ${prediction.metrics.predict_time.toFixed(2)}s`);
+        console.log(`⏱️ [DEBUG] Prediction time: ${prediction.metrics.predict_time.toFixed(2)}s`);
       }
       return prediction;
     }
 
     if (prediction.status === 'failed' || prediction.status === 'canceled') {
       const error = prediction.error || 'Unknown error';
-      console.error('❌ Replicate prediction failed:', error);
-      throw new Error(`Replicate video generation failed: ${error}`);
+      console.error('❌ [DEBUG] Replicate prediction failed:', error);
+      console.error('❌ [DEBUG] Final prediction state:', prediction);
+      throw new Error(`Replicate generation failed: ${error}`);
     }
 
     attempts++;
   }
 
-  throw new Error('Replicate video generation timed out after 6 minutes');
+  const totalTime = Math.round((Date.now() - startTime) / 1000);
+  console.error(`❌ [DEBUG] Replicate polling timed out after ${MAX_POLL_ATTEMPTS} attempts (${totalTime}s)`);
+  throw new Error(`Replicate generation timed out after ${totalTime}s`);
 }
 
 /**
@@ -413,10 +437,12 @@ export async function fetchReplicateVideoBlob(videoUrl: string): Promise<Blob> {
 async function generateImageWithFlux(prompt: string): Promise<string> {
   const apiKey = getApiKey('REPLICATE_API_KEY');
   if (!apiKey) {
+    console.error('❌ REPLICATE_API_KEY not configured');
     throw new Error('REPLICATE_API_KEY is not set. Please configure your API keys.');
   }
 
-  console.log('🎨 Generating image with FLUX Schnell (free)...');
+  console.log('🎨 [DEBUG] Starting FLUX image generation...');
+  console.log('🎨 [DEBUG] Prompt:', prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''));
 
   const requestBody = {
     version: FLUX_SCHNELL_VERSION,
@@ -430,6 +456,7 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
     }
   };
 
+  console.log('🎨 [DEBUG] Sending request to Replicate API...');
   const response = await fetch(`${REPLICATE_API_BASE}/predictions`, {
     method: 'POST',
     headers: {
@@ -439,13 +466,17 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
     body: JSON.stringify(requestBody)
   });
 
+  console.log('🎨 [DEBUG] Replicate API response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('❌ [DEBUG] FLUX API error:', response.status, errorText);
     throw new Error(`FLUX image generation failed: ${response.status} ${errorText}`);
   }
 
   const prediction: ReplicatePrediction = await response.json();
-  console.log('⏳ FLUX prediction created:', prediction.id);
+  console.log('⏳ [DEBUG] FLUX prediction created with ID:', prediction.id);
+  console.log('⏳ [DEBUG] Initial prediction status:', prediction.status);
 
   // Poll for completion
   const completedPrediction = await pollReplicatePrediction(prediction.id);
@@ -459,23 +490,36 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   }
 
   if (!imageUrl) {
+    console.error('❌ [DEBUG] FLUX generation succeeded but no image URL returned');
     throw new Error('FLUX image generation succeeded but returned no image URL');
   }
 
-  console.log('✅ FLUX image generated:', imageUrl);
-  
+  console.log('✅ [DEBUG] FLUX image generated, URL:', imageUrl);
+
   // Fetch the image and convert to data URL
+  console.log('📥 [DEBUG] Fetching FLUX image from URL...');
   const imageResponse = await fetch(imageUrl);
+  console.log('📥 [DEBUG] Image fetch response status:', imageResponse.status);
+
   if (!imageResponse.ok) {
+    console.error('❌ [DEBUG] Failed to fetch FLUX image:', imageResponse.statusText);
     throw new Error(`Failed to fetch FLUX image: ${imageResponse.statusText}`);
   }
-  
+
   const imageBlob = await imageResponse.blob();
+  console.log('📥 [DEBUG] Image blob size:', imageBlob.size, 'bytes');
+  console.log('🔄 [DEBUG] Converting blob to base64 data URL...');
   const reader = new FileReader();
-  
+
   return new Promise((resolve, reject) => {
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onloadend = () => {
+      console.log('✅ [DEBUG] FLUX image generation completed successfully');
+      resolve(reader.result as string);
+    };
+    reader.onerror = (error) => {
+      console.error('❌ [DEBUG] FileReader error during base64 conversion:', error);
+      reject(error);
+    };
     reader.readAsDataURL(imageBlob);
   });
 }

@@ -566,9 +566,16 @@ export default function App() {
 
   const queueVideoGeneration = useCallback(
     async (prompt: string, intent: GenerationIntent, lastFrame?: string | null, narrativeType?: string) => {
+      console.log('🎮 [DEBUG] App: queueVideoGeneration called');
+      console.log('🎮 [DEBUG] App: Intent:', intent);
+      console.log('🎮 [DEBUG] App: Has last frame:', !!lastFrame);
+      console.log('🎮 [DEBUG] App: Narrative type:', narrativeType);
+
       try {
         const segmentId = getNextSegmentId();
-        await enqueueTask({
+        console.log('🎮 [DEBUG] App: Generated segment ID:', segmentId);
+
+        const taskInput = {
           segmentId,
           prompt,
           model: selectedModel,
@@ -576,8 +583,23 @@ export default function App() {
           imageModel: selectedImageModel,
           intent,
           narrativeType,
+        };
+
+        console.log('🎮 [DEBUG] App: Task input:', {
+          segmentId,
+          promptLength: prompt.length,
+          model: selectedModel,
+          hasImageData: !!lastFrame,
+          imageModel: selectedImageModel,
+          intent,
+          narrativeType
         });
+
+        console.log('🎮 [DEBUG] App: Calling enqueueTask...');
+        await enqueueTask(taskInput);
+        console.log('✅ [DEBUG] App: Task enqueued successfully');
       } catch (error) {
+        console.error('❌ [DEBUG] App: Failed to enqueue task:', error);
         handleError(error, 'while queueing video generation');
       }
     },
@@ -599,11 +621,19 @@ export default function App() {
   }, [videoSegments, scrollToBottom]);
 
   const generateInitialImage = async (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => {
+    console.log('🎮 [DEBUG] App: Starting initial image generation');
+    console.log('🎮 [DEBUG] App: Original prompt:', prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''));
+    console.log('🎮 [DEBUG] App: Style preset:', stylePreset?.name || 'none');
+    console.log('🎮 [DEBUG] App: Narrative type:', narrativeType.id);
+    console.log('🎮 [DEBUG] App: Selected image model:', selectedImageModel);
+
     try {
+      console.log('🎮 [DEBUG] App: Setting game state to GENERATING_IMAGE');
       setGameState(GameState.GENERATING_IMAGE);
       setLoadingTitle('Enhancing Your Prompt...');
 
       // Clear any previous game state
+      console.log('🎮 [DEBUG] App: Clearing previous game state');
       await clearHistory();
       videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
       setVideoSegments([]);
@@ -613,29 +643,41 @@ export default function App() {
       setPreloadedChoices(null);
       setIsPrefetchingChoices(false);
       segmentIdRef.current = Date.now();
+
       if (generationTasks.length > 0) {
+        console.log('🎮 [DEBUG] App: Cancelling existing generation tasks:', generationTasks.length);
         await Promise.all(generationTasks.map(task => cancelGenerationTask(task.id)));
       }
-      
+
       // Build prompt with style preset
+      console.log('🎮 [DEBUG] App: Building styled prompt...');
       const styledPrompt = buildPrompt(prompt, stylePreset);
-      
+      console.log('🎮 [DEBUG] App: Styled prompt length:', styledPrompt.length);
+
       // Enhance the prompt to make it more game-like and adventurous, with narrative type
+      console.log('🎮 [DEBUG] App: Enhancing prompt...');
       const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true, narrativeType });
-      
+      console.log('🎮 [DEBUG] App: Enhanced prompt length:', enhancedPrompt.length);
+
       setLoadingTitle('Generating Your Scene Image...');
-      
+
       // Generate the initial image based on selected image model
+      console.log('🎮 [DEBUG] App: Importing replicateService.generateImageForPreview...');
       const { generateImageForPreview } = await import('./services/replicateService');
+      console.log('🎮 [DEBUG] App: Calling generateImageForPreview...');
       const imageDataUrl = await generateImageForPreview(enhancedPrompt, selectedImageModel);
+      console.log('🎮 [DEBUG] App: Image generation completed, data URL length:', imageDataUrl.length);
       
       // Store for later use and show preview
+      console.log('🎮 [DEBUG] App: Setting preview image and state');
       setPreviewImageUrl(imageDataUrl);
       setInitialPrompt(enhancedPrompt);
       setInitialStylePreset(stylePreset);
       setGameState(GameState.IMAGE_PREVIEW);
-      
+      console.log('✅ [DEBUG] App: Initial image generation completed successfully');
+
     } catch (error) {
+      console.error('❌ [DEBUG] App: Initial image generation failed:', error);
       handleError(error, 'during image generation');
     }
   };
@@ -656,15 +698,26 @@ export default function App() {
   };
 
   const handleAcceptImage = useCallback(async () => {
-    if (!previewImageUrl || !initialPrompt) return;
-    
+    console.log('🎮 [DEBUG] App: handleAcceptImage called');
+    console.log('🎮 [DEBUG] App: Preview image available:', !!previewImageUrl);
+    console.log('🎮 [DEBUG] App: Initial prompt available:', !!initialPrompt);
+
+    if (!previewImageUrl || !initialPrompt) {
+      console.warn('⚠️ [DEBUG] App: Missing preview image or initial prompt, returning early');
+      return;
+    }
+
     try {
+      console.log('🎮 [DEBUG] App: Setting game state to GENERATING_VIDEO');
       setGameState(GameState.GENERATING_VIDEO);
       setLoadingTitle('Crafting Your First Scene...');
-      
+
       // Start generating the first video with the approved image
+      console.log('🎮 [DEBUG] App: Calling queueVideoGeneration...');
       await queueVideoGeneration(initialPrompt, 'initial', previewImageUrl, selectedNarrativeType.id);
+      console.log('✅ [DEBUG] App: Video generation queued successfully');
     } catch (error) {
+      console.error('❌ [DEBUG] App: Video generation queue failed:', error);
       handleError(error, 'during video generation');
     }
   }, [previewImageUrl, initialPrompt, queueVideoGeneration, selectedNarrativeType]);
@@ -1183,14 +1236,11 @@ export default function App() {
 
     // Create a new generation task for this segment
     await enqueueTask({
-      id: `regen-${Date.now()}`,
       segmentId: segment.id,
       prompt: segment.prompt,
       model: selectedModel,
       imageData: segment.lastFrameDataUrl,
       intent: 'continuation', // Use continuation since we have context
-      status: 'queued',
-      createdAt: Date.now(),
       narrativeType: segment.narrativeType,
     });
     

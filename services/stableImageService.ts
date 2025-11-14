@@ -33,12 +33,17 @@ export async function generateStableImage(
     seed?: number;
   } = {}
 ): Promise<string> {
+  console.log('🎨 [DEBUG] Starting Stable Diffusion image generation...');
+  console.log('🎨 [DEBUG] Prompt:', prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''));
+
   const {
     negativePrompt = '',
     aspectRatio = '16:9', // Good for video generation
     model = 'core', // Good balance of speed/quality
     seed
   } = options;
+
+  console.log('🎨 [DEBUG] Options:', { negativePrompt: negativePrompt.substring(0, 50) + (negativePrompt.length > 50 ? '...' : ''), aspectRatio, model, seed });
 
   // Choose the right endpoint based on model
   const endpoint = `${STABILITY_IMAGE_API_BASE}/${model}`;
@@ -59,8 +64,12 @@ export async function generateStableImage(
 
   const apiKey = getApiKey('STABILITY_API_KEY');
   if (!apiKey) {
+    console.error('❌ [DEBUG] STABILITY_API_KEY not configured');
     throw new Error('STABILITY_API_KEY is not set. Please configure your API keys.');
   }
+
+  console.log('🎨 [DEBUG] Sending request to Stability AI API...');
+  console.log('🎨 [DEBUG] Endpoint:', endpoint);
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -71,16 +80,25 @@ export async function generateStableImage(
     body: formData
   });
 
+  console.log('🎨 [DEBUG] Stability AI response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
+    console.error('❌ [DEBUG] Stability AI error:', response.status, errorText);
     throw new Error(
       `Stability AI Image Generation error: ${response.status} - ${errorText || response.statusText}`
     );
   }
 
   // Convert image blob to base64 data URL
+  console.log('📥 [DEBUG] Converting response to blob...');
   const imageBlob = await response.blob();
-  return await blobToBase64DataURL(imageBlob);
+  console.log('📥 [DEBUG] Image blob size:', imageBlob.size, 'bytes');
+
+  console.log('🔄 [DEBUG] Converting blob to base64 data URL...');
+  const result = await blobToBase64DataURL(imageBlob);
+  console.log('✅ [DEBUG] Stability AI image generation completed');
+  return result;
 }
 
 /**
@@ -89,8 +107,14 @@ export async function generateStableImage(
 function blobToBase64DataURL(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onloadend = () => {
+      console.log('🔄 [DEBUG] Base64 conversion completed, data URL length:', (reader.result as string).length);
+      resolve(reader.result as string);
+    };
+    reader.onerror = (error) => {
+      console.error('❌ [DEBUG] FileReader error during base64 conversion:', error);
+      reject(error);
+    };
     reader.readAsDataURL(blob);
   });
 }
