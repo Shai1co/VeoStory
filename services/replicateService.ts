@@ -327,7 +327,7 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
     // Wait before polling (except first attempt)
     if (attempts > 0) {
       console.log(`⏳ [DEBUG] Waiting ${POLL_INTERVAL_MS}ms before next poll attempt...`);
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 
     const elapsedTime = Math.round((Date.now() - startTime) / 1000);
@@ -350,7 +350,7 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
     }
 
     const prediction: ReplicatePrediction = await response.json();
-
+    
     console.log(`🔄 [DEBUG] Prediction status: ${prediction.status}`);
     if (prediction.status !== 'starting' && prediction.status !== 'processing') {
       console.log(`🔄 [DEBUG] Prediction details:`, {
@@ -495,7 +495,7 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   }
 
   console.log('✅ [DEBUG] FLUX image generated, URL:', imageUrl);
-
+  
   // Fetch the image and convert to data URL
   console.log('📥 [DEBUG] Fetching FLUX image from URL...');
   const imageResponse = await fetch(imageUrl);
@@ -505,12 +505,12 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
     console.error('❌ [DEBUG] Failed to fetch FLUX image:', imageResponse.statusText);
     throw new Error(`Failed to fetch FLUX image: ${imageResponse.statusText}`);
   }
-
+  
   const imageBlob = await imageResponse.blob();
   console.log('📥 [DEBUG] Image blob size:', imageBlob.size, 'bytes');
   console.log('🔄 [DEBUG] Converting blob to base64 data URL...');
   const reader = new FileReader();
-
+  
   return new Promise((resolve, reject) => {
     reader.onloadend = () => {
       console.log('✅ [DEBUG] FLUX image generation completed successfully');

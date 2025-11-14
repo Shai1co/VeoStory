@@ -8,10 +8,13 @@ import { getApiKey } from '../utils/apiKeys';
 import { NarrativeType } from '../config/narrativeTypes';
 
 const getAIClient = () => {
+  console.log('✨ [DEBUG] PromptEnhancement: Getting Gemini API key...');
   const apiKey = getApiKey('GEMINI_API_KEY');
   if (!apiKey) {
+    console.error('❌ [DEBUG] PromptEnhancement: Gemini API key not found');
     throw new Error("Gemini API key not found. Please configure your API keys.");
   }
+  console.log('✨ [DEBUG] PromptEnhancement: API key found, creating GoogleGenAI client...');
   return new GoogleGenAI({ apiKey });
 };
 
@@ -48,11 +51,23 @@ export async function enhancePrompt(
     narrativeType?: NarrativeType;
   }
 ): Promise<string> {
-  const ai = getAIClient();
-  
-  const narrativeGuidance = buildNarrativeGuidance(context?.narrativeType);
-  
-  const systemPrompt = context?.isInitial
+  console.log('✨ [DEBUG] PromptEnhancement: Starting prompt enhancement');
+  console.log('✨ [DEBUG] PromptEnhancement: User prompt:', userPrompt.substring(0, 100) + (userPrompt.length > 100 ? '...' : ''));
+  console.log('✨ [DEBUG] PromptEnhancement: Context:', {
+    isInitial: context?.isInitial,
+    hasNarrativeType: !!context?.narrativeType,
+    narrativeTypeName: context?.narrativeType?.name
+  });
+
+  try {
+    console.log('✨ [DEBUG] PromptEnhancement: Getting AI client...');
+    const ai = getAIClient();
+    console.log('✨ [DEBUG] PromptEnhancement: AI client created successfully');
+    
+    const narrativeGuidance = buildNarrativeGuidance(context?.narrativeType);
+    console.log('✨ [DEBUG] PromptEnhancement: Narrative guidance:', narrativeGuidance);
+
+    const systemPrompt = context?.isInitial
     ? `You are a game scenario writer. Transform the user's input into an exciting, game-like video scene description.
 
 ${narrativeGuidance}
@@ -94,7 +109,9 @@ REQUIREMENTS:
 
 Now enhance this next scene: "${userPrompt}"`;
 
-  try {
+    console.log('✨ [DEBUG] PromptEnhancement: System prompt length:', systemPrompt.length);
+    console.log('✨ [DEBUG] PromptEnhancement: Calling Gemini API...');
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: systemPrompt,
@@ -104,49 +121,57 @@ Now enhance this next scene: "${userPrompt}"`;
       },
     });
 
+    console.log('✨ [DEBUG] PromptEnhancement: API response received');
     // Debug: Log the response structure to understand the API
-    console.log("Response structure:", JSON.stringify(response, null, 2));
+    console.log("✨ [DEBUG] PromptEnhancement: Response structure:", JSON.stringify(response, null, 2));
     
     // Extract text from response - handle various possible response formats
     let enhanced: string;
     
     // Try response.text first (most common format)
     if (response.text && typeof response.text === 'string') {
+      console.log('✨ [DEBUG] PromptEnhancement: Found response.text');
       enhanced = response.text.trim();
     } 
     // Try response.candidates if available
     else if (response.candidates && Array.isArray(response.candidates) && response.candidates.length > 0) {
+      console.log('✨ [DEBUG] PromptEnhancement: Using response.candidates');
       const candidate = response.candidates[0];
       if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
         const text = candidate.content.parts[0].text;
         if (text && typeof text === 'string') {
           enhanced = text.trim();
+          console.log('✨ [DEBUG] PromptEnhancement: Extracted text from candidate');
         } else {
-          console.warn("No text in candidate parts");
+          console.warn("⚠️ [DEBUG] PromptEnhancement: No text in candidate parts");
           return userPrompt;
         }
       } else {
-        console.warn("No content in candidate");
+        console.warn("⚠️ [DEBUG] PromptEnhancement: No content in candidate");
         return userPrompt;
       }
     }
     // Fallback: try to stringify and parse
     else {
-      console.warn("Unexpected response format:", response);
+      console.warn("⚠️ [DEBUG] PromptEnhancement: Unexpected response format:", response);
       return userPrompt;
     }
     
     // Validate output isn't empty and isn't too similar to system prompt
     if (!enhanced || enhanced.length < 20) {
-      console.warn("Enhancement produced short output, using original:", enhanced);
+      console.warn("⚠️ [DEBUG] PromptEnhancement: Enhancement produced short output, using original:", enhanced);
       return userPrompt;
     }
     
-    console.log("✨ Prompt enhanced:", { original: userPrompt, enhanced });
+    console.log("✅ [DEBUG] PromptEnhancement: Prompt enhanced successfully");
+    console.log("✨ [DEBUG] PromptEnhancement: Original:", userPrompt);
+    console.log("✨ [DEBUG] PromptEnhancement: Enhanced:", enhanced);
     return enhanced;
     
   } catch (error) {
-    console.error("Failed to enhance prompt, using original:", error);
+    console.error("❌ [DEBUG] PromptEnhancement: Failed to enhance prompt:", error);
+    console.error("❌ [DEBUG] PromptEnhancement: Error details:", error instanceof Error ? error.message : String(error));
+    console.error("❌ [DEBUG] PromptEnhancement: Stack trace:", error instanceof Error ? error.stack : 'N/A');
     // Graceful fallback - use original prompt if enhancement fails
     return userPrompt;
   }

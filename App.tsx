@@ -648,19 +648,19 @@ export default function App() {
         console.log('🎮 [DEBUG] App: Cancelling existing generation tasks:', generationTasks.length);
         await Promise.all(generationTasks.map(task => cancelGenerationTask(task.id)));
       }
-
+      
       // Build prompt with style preset
       console.log('🎮 [DEBUG] App: Building styled prompt...');
       const styledPrompt = buildPrompt(prompt, stylePreset);
       console.log('🎮 [DEBUG] App: Styled prompt length:', styledPrompt.length);
-
+      
       // Enhance the prompt to make it more game-like and adventurous, with narrative type
       console.log('🎮 [DEBUG] App: Enhancing prompt...');
       const enhancedPrompt = await enhancePrompt(styledPrompt, { isInitial: true, narrativeType });
       console.log('🎮 [DEBUG] App: Enhanced prompt length:', enhancedPrompt.length);
-
+      
       setLoadingTitle('Generating Your Scene Image...');
-
+      
       // Generate the initial image based on selected image model
       console.log('🎮 [DEBUG] App: Importing replicateService.generateImageForPreview...');
       const { generateImageForPreview } = await import('./services/replicateService');
@@ -675,7 +675,7 @@ export default function App() {
       setInitialStylePreset(stylePreset);
       setGameState(GameState.IMAGE_PREVIEW);
       console.log('✅ [DEBUG] App: Initial image generation completed successfully');
-
+      
     } catch (error) {
       console.error('❌ [DEBUG] App: Initial image generation failed:', error);
       handleError(error, 'during image generation');
@@ -706,12 +706,12 @@ export default function App() {
       console.warn('⚠️ [DEBUG] App: Missing preview image or initial prompt, returning early');
       return;
     }
-
+    
     try {
       console.log('🎮 [DEBUG] App: Setting game state to GENERATING_VIDEO');
       setGameState(GameState.GENERATING_VIDEO);
       setLoadingTitle('Crafting Your First Scene...');
-
+      
       // Start generating the first video with the approved image
       console.log('🎮 [DEBUG] App: Calling queueVideoGeneration...');
       await queueVideoGeneration(initialPrompt, 'initial', previewImageUrl, selectedNarrativeType.id);
