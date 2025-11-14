@@ -5,7 +5,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { getApiKey } from '../utils/apiKeys';
-import { NarrativeType } from '../config/narrativeTypes';
+import { NarrativeType, NarrativeTypeId } from '../config/narrativeTypes';
 
 const getAIClient = () => {
   const apiKey = getApiKey('GEMINI_API_KEY');
@@ -72,6 +72,65 @@ export interface ChoiceGenerationOptions {
   narrativeType?: NarrativeType;
 }
 
+const NARRATIVE_CHOICE_DIRECTIVES: Record<NarrativeTypeId, string[]> = {
+  adventure: [
+    'Every choice must push the party deeper into unexplored terrain, curiosities, or discoveries.',
+    'Reference landmarks, relics, clues, or vistas that reward exploration.',
+    'Provide one bold expedition, one careful scouting/surveying action, and one creative environmental interaction.'
+  ],
+  combat: [
+    'Each choice must involve an explicit opponent, threat, or battlefield obstacle.',
+    'Use combat verbs (strike, parry, unleash, counter, flank, shield, detonate) and mention weapons, powers, or tactics.',
+    'Choice 1 = aggressive power move, Choice 2 = defensive or tactical repositioning, Choice 3 = special technique, combo, or environmental exploitation.'
+  ],
+  mystery: [
+    'All choices must revolve around uncovering truth via clues, evidence, interrogation, or deduction.',
+    'Reference suspects, contradictions, artifacts, riddles, or forensic techniques.',
+    'Ensure at least one choice analyses clues, one questions someone, and one inspects a suspicious location/object.'
+  ],
+  stealth: [
+    'Keep every choice quiet, unseen, and precise—emphasize shadows, disguises, and misdirection.',
+    'Mention hiding spots, silent takedowns, disabling alarms, or slipping past sentries.',
+    'Provide one evasive route, one surgical silent action, and one clever distraction or sabotage.'
+  ],
+  social: [
+    'All choices must be conversational maneuvers: persuasion, intimidation, charm, negotiation, or emotional appeals.',
+    'Explicitly mention tone, body language, or rhetorical strategy.',
+    'Include options that sway allies, defuse hostility, or forge alliances.'
+  ],
+  survival: [
+    'Center every choice on enduring the environment: supplies, shelter, health, or weather.',
+    'Reference specific resources (water, rations, tools, fire, medicine) and natural hazards.',
+    'Provide one choice securing resources, one reinforcing safety, and one high-risk gamble for long-term survival.'
+  ],
+  horror: [
+    'Keep the tone tense and fearful—mention lurking horrors, whispers, corrupted environments, or sanity slipping.',
+    'Choices should involve desperate escape, risky confrontation of the terror, or coping with dread.',
+    'Use anxious verbs (bolt, barricade, banish, pray, steady breathing) and highlight consequences of failure.'
+  ],
+  romance: [
+    'All choices must revolve around emotional connection, vulnerability, or relationship momentum.',
+    'Describe gestures, confessions, support, or shared memories; mention feelings explicitly.',
+    'Offer one bold romantic move, one tender reassuring act, and one cautious but heartfelt step.'
+  ],
+};
+
+const buildNarrativeChoiceDirectives = (narrativeType?: NarrativeType): string => {
+  if (!narrativeType) {
+    return '';
+  }
+
+  const directives = NARRATIVE_CHOICE_DIRECTIVES[narrativeType.id as NarrativeTypeId] ?? [
+    'Ensure each choice clearly embodies the described narrative type and would satisfy fans of that genre.'
+  ];
+
+  return `
+CRITICAL ${narrativeType.name.toUpperCase()} ALIGNMENT:
+- The entire response must feel like ${narrativeType.description}.
+${directives.map(d => `- ${d}`).join('\n')}
+`;
+};
+
 export const generateChoices = async (
   storyContext: string,
   lastFrameBase64?: string,
@@ -119,6 +178,7 @@ IMPORTANT: Provide MORE VARIETY - include different action types!\n`;
 Guidance for this narrative type:
 ${hints.map(h => `- ${h}`).join('\n')}\n`;
   }
+  const narrativeDirectives = buildNarrativeChoiceDirectives(narrativeType);
   
   const prompt = `
     You are a game designer creating exciting action choices for a video game adventure. Based on the current story, suggest three dynamic and ACTION-ORIENTED choices.
@@ -126,7 +186,7 @@ ${hints.map(h => `- ${h}`).join('\n')}\n`;
     Story Context: "${storyContext}"
 
     If a reference frame is provided, align the choices with the details in that scene (characters, environment, objects, mood).
-    ${narrativeSection}${antiPatternSection}${diversitySection}${progressionSection}
+    ${narrativeSection}${narrativeDirectives}${antiPatternSection}${diversitySection}${progressionSection}
     CRITICAL REQUIREMENTS for each choice:
     
     1. DIVERSITY - Each choice MUST represent a DIFFERENT approach:
