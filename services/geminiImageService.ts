@@ -7,6 +7,8 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 // Models that support image generation with Gemini API key
 // Note: These models may require a paid API tier
 const GEMINI_IMAGE_MODELS = [
+  'gemini-2.0-flash-exp-image-generation',  // Experimental image generation (latest)
+  'gemini-2.0-flash-preview-image-generation',  // Preview image generation
   'imagen-3.0-generate-002',  // Imagen 3 - more widely available
   'imagen-3.0-fast-generate-001',  // Imagen 3 Fast
   'imagen-3.0-generate-001',  // Imagen 3 Standard
@@ -21,9 +23,10 @@ interface GeminiImageRequest {
   }>;
   generationConfig: {
     temperature: number;
-    topK: number;
-    topP: number;
-    maxOutputTokens: number;
+    topK?: number;
+    topP?: number;
+    maxOutputTokens?: number;
+    response_modalities?: string[];  // For image generation models
   };
 }
 
@@ -85,9 +88,7 @@ export async function generateGeminiImage(
     ],
     generationConfig: {
       temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 1024
+      response_modalities: ['IMAGE', 'TEXT']  // Required for image generation models
     }
   };
 
@@ -159,10 +160,31 @@ export async function generateGeminiImage(
       }
 
       // Look for inline data (base64 image)
+      // Log the full structure to understand what we're getting
+      console.log(`🔍 [DEBUG] ${modelName} full parts structure:`, JSON.stringify(candidate.content.parts, null, 2));
+      
       const imagePart = candidate.content.parts.find(part => part.inlineData);
       if (!imagePart?.inlineData) {
         console.error(`❌ [DEBUG] ${modelName} returned no inline data`);
         console.error(`❌ [DEBUG] Available parts:`, candidate.content.parts);
+        
+        // Try to find image in alternative formats
+        const partWithImage = candidate.content.parts.find(part => 
+          part && typeof part === 'object' && ('inlineData' in part || 'image' in part || 'imageData' in part)
+        );
+        
+        if (partWithImage) {
+          console.log('🔍 [DEBUG] Found alternative image format:', partWithImage);
+        }
+        
+        // If model returns text description instead of image, skip to next model
+        const hasOnlyText = candidate.content.parts.every(part => part.text && !part.inlineData);
+        if (hasOnlyText) {
+          console.warn(`⚠️ [DEBUG] ${modelName} returned only text, trying next model...`);
+          lastError = new Error('Model returned text instead of image');
+          continue;
+        }
+        
         throw new Error('Gemini did not return image data in the expected format.');
       }
 

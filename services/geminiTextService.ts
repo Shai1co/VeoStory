@@ -41,7 +41,7 @@ const buildModelCandidates = (preferredModel?: LLMModel): string[] => {
 // API timeout configuration
 const API_TIMEOUT_MS = 10000; // 10 second timeout
 const HTTP_STATUS_NOT_FOUND = 404;
-const MAX_PROMPT_OUTPUT_TOKENS = 180;
+const MAX_PROMPT_OUTPUT_TOKENS = 240;
 
 class GeminiModelNotFoundError extends Error {
   public readonly modelId: string;
@@ -141,7 +141,12 @@ export async function getRandomPrompt(preferredModel?: LLMModel): Promise<string
         notFoundErrors.push(error);
         continue;
       }
-      lastError = error instanceof Error ? error : new Error(String(error));
+      const typedError = error instanceof Error ? error : new Error(String(error));
+      if (typedError.message.includes('MAX_TOKENS')) {
+        console.warn('⚠️ Gemini hit MAX_TOKENS while generating a random prompt. Using fallback blueprint instead.');
+        return produceFallbackPrompt();
+      }
+      lastError = typedError;
       break;
     }
   }
