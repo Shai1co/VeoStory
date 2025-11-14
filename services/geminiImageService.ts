@@ -4,10 +4,12 @@ import { getApiKey } from '../utils/apiKeys';
 
 // Gemini API configuration
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+// Models that support image generation with Gemini API key
 const GEMINI_IMAGE_MODELS = [
-  'gemini-2.5-flash',  // Latest flash model - good for multimodal
-  'gemini-2.0-flash',  // Fallback flash model
-  'gemini-flash-latest' // Always latest available
+  'imagen-4.0-fast-generate-001',  // Imagen 4.0 Fast - best balance
+  'imagen-4.0-generate-001',  // Imagen 4.0 Standard
+  'gemini-2.0-flash-preview-image-generation',  // Gemini 2.0 with image generation
+  'imagen-4.0-ultra-generate-001'  // Imagen 4.0 Ultra - highest quality (paid tier)
 ] as const;
 
 interface GeminiImageRequest {
@@ -40,8 +42,9 @@ interface GeminiImageResponse {
 }
 
 /**
- * Generate an image from a text prompt using Gemini Imagen 3 (Nano Banana)
- * Tries multiple models in order of preference for best quality
+ * Generate an image from a text prompt using Gemini/Imagen models
+ * Supports Imagen 4.0 and Gemini 2.0 with image generation
+ * All generated images include SynthID watermark
  */
 export async function generateGeminiImage(
   prompt: string,
@@ -51,7 +54,7 @@ export async function generateGeminiImage(
     quality?: 'standard' | 'high';
   }
 ): Promise<string> {
-  console.log('🎨 [DEBUG] Starting Gemini image generation...');
+  console.log('🎨 [DEBUG] Starting Gemini/Imagen image generation...');
   console.log('🎨 [DEBUG] Prompt:', prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''));
   console.log('🎨 [DEBUG] Options:', options);
 
@@ -107,9 +110,9 @@ export async function generateGeminiImage(
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = `${response.status} - ${errorData.error?.message || response.statusText}`;
 
-        // If model not found, try next one
-        if (response.status === 404) {
-          console.warn(`⚠️ [DEBUG] Model ${modelName} not found, trying next...`);
+        // If model not found or not available, try next one
+        if (response.status === 404 || response.status === 403) {
+          console.warn(`⚠️ [DEBUG] Model ${modelName} not available (${response.status}), trying next...`);
           lastError = new Error(errorMsg);
           continue;
         }
@@ -159,8 +162,8 @@ export async function generateGeminiImage(
   }
 
   // All models failed
-  console.error('❌ [DEBUG] All Gemini models failed');
-  throw lastError || new Error('Failed to generate image with all available Gemini models');
+  console.error('❌ [DEBUG] All Gemini/Imagen models failed');
+  throw lastError || new Error('Failed to generate image with all available Gemini/Imagen models');
 }
 
 /**

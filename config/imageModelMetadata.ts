@@ -20,8 +20,8 @@ export const IMAGE_MODEL_METADATA: Record<ImageModel, ImageModelMetadata> = {
   'gemini-imagen-3': {
     id: 'gemini-imagen-3',
     provider: 'gemini',
-    name: 'Imagen 3 (Nano Banana)',
-    description: 'Google\'s Imagen 3 via Gemini - photorealistic, high-quality images',
+    name: 'Imagen 4.0',
+    description: 'Google\'s Imagen 4.0 via Gemini API - photorealistic, high-quality images with SynthID watermark',
     icon: '🍌',
     speed: '~5-10 seconds',
     quality: 'Excellent',

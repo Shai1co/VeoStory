@@ -105,7 +105,7 @@ export default function App() {
   });
   const [selectedImageModel, setSelectedImageModel] = useState<ImageModel>(() => {
     const saved = localStorage.getItem('veo-image-model-preference');
-    return (saved as ImageModel) || 'gemini-imagen-3';
+    return (saved as ImageModel) || 'flux-schnell';
   });
   const [selectedLlmModel, setSelectedLlmModel] = useState<LLMModel>(() => {
     const saved = localStorage.getItem(LLM_MODEL_STORAGE_KEY);
