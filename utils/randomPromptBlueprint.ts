@@ -69,12 +69,13 @@ type ManualBlueprintCategoryMap = {
   [K in ManualBlueprintCategoryKey]: ManualBlueprintCategoryDefinition<K>;
 };
 
-export const TARGET_PROMPT_CHARACTER_LIMIT = 220;
+export const TARGET_PROMPT_CHARACTER_LIMIT = 150;
 
 const RECENT_BLUEPRINT_HISTORY_LIMIT = 30;
 const RECENT_PROMPT_HISTORY_LIMIT = 50;
 const MAX_BLUEPRINT_ATTEMPTS = 20;
 const BANNED_TERMS = ['tea', 'tea shop', 'barista', 'café', 'coffee shop'];
+const OVERUSED_DESCRIPTORS = ['exiled', 'cursed', 'haunted', 'rogue', 'enigmatic'];
 
 const recentBlueprintIds: string[] = [];
 const recentPrompts: string[] = [];
@@ -939,26 +940,27 @@ export const renderPromptFromBlueprint = (blueprint: AdventurePromptBlueprint): 
 };
 
 export const buildFreeformGeminiInstruction = (recentCharacterNames?: string[]): string => {
-  const avoidClause = recentCharacterNames && recentCharacterNames.length > 0
-    ? `AVOID REPEATING these recently used character descriptors: ${recentCharacterNames.slice(-10).join(', ')}. Create something FRESH and DIFFERENT. `
+  // Build a strong avoid list
+  const avoidList = recentCharacterNames && recentCharacterNames.length > 0
+    ? recentCharacterNames.slice(-15).filter((name, index, arr) => arr.indexOf(name) === index)
+    : [];
+  
+  const avoidClause = avoidList.length > 0
+    ? `⚠️ CRITICAL: DO NOT USE these overused words: ${avoidList.join(', ')}. These have been used recently. Pick completely different descriptors! `
     : '';
   
   return [
-    'You are creating an exciting opening for an interactive visual novel adventure.',
-    `Write a compelling 2-sentence prompt under ${TARGET_PROMPT_CHARACTER_LIMIT} characters that hooks the reader immediately.`,
-    'STRUCTURE: Introduce a unique protagonist with personality (not generic), establish a vivid location, present a clear objective or conflict, and include immediate tension or stakes.',
-    'VARIETY: Mix up sentence structures. Try different openings (character first, location first, tension first, time pressure, etc.).',
-    'PROTAGONIST DIVERSITY: Explore different archetypes - warriors, mages, scientists, rogues, diplomats, survivors, investigators, rebels, explorers, artificers, assassins, healers, pilots, hackers, bounty hunters, merchants, spies, shamans, etc. Make them memorable with unique descriptors.',
+    'Write a SHORT, PUNCHY 1-2 sentence adventure prompt.',
+    `MAXIMUM ${TARGET_PROMPT_CHARACTER_LIMIT} characters. Keep it SIMPLE and DIRECT. No fluff.`,
     avoidClause,
-    'CHARACTER EXAMPLES (for variety, create different ones): "battle-scarred", "enigmatic", "reckless", "calculating", "haunted", "silver-tongued", "tech-augmented", "cursed", "exiled", "rookie", "veteran", "reformed", "rogue", "desperate", "brilliant", "unhinged", etc.',
-    'GENRE VARIETY: Fantasy, sci-fi, cyberpunk, post-apocalyptic, horror, mystery, steampunk, space opera, supernatural, etc. Mix and match elements creatively.',
-    'TONE VARIETY: Can be epic, tense, mysterious, hopeful, grim, urgent, playful, dramatic, etc.',
-    'AVOID: Generic characters (just "a warrior" or "a mage"), passive scenes, tea shops, cafes, coffee, modern mundane settings.',
-    'EXAMPLES for inspiration (create something completely different):',
-    '"A battle-scarred cyber medic must extract a rogue AI from a dying patient. In the neon-lit underground clinic, corporate kill squads breach the entrance."',
-    '"When ancient machinery awakens beneath the ice, a curious xenoarchaeologist must decode alien warnings before the planet tears itself apart."',
-    '"A silver-tongued con artist has one last job: steal a memory from a god. At the celestial auction house, divine guards sense the deception."',
-    'Now create ONE completely original and unique prompt (2 sentences, no numbering, no alternatives, just the prompt):',
+    'Format: [Unique character description] must [clear goal]. [Location], [immediate problem/tension].',
+    'CHARACTER: Use UNCOMMON, CREATIVE descriptors. Try: weathered, scarred, paranoid, broken, feral, elegant, scattered, methodical, impulsive, stoic, volatile, weary, fierce, cunning, naive, jaded, zealous, pragmatic, idealistic, sardonic, melancholic.',
+    'ROLES: mercenary, courier, scavenger, medic, hacker, pilot, smuggler, detective, thief, scholar, engineer, soldier, merchant, nomad, fugitive, guardian, hunter, outcast, wanderer.',
+    'AVOID: Overused words (cursed, exiled, haunted, rogue), generic roles (warrior, mage), passive descriptions, modern boring settings, tea/cafe.',
+    'EXAMPLES (make yours DIFFERENT):',
+    '"Scarred freight pilot must deliver contraband before dawn. Orbital station, security scans detect the cargo."',
+    '"Paranoid data miner needs to crack encrypted files. Underground server farm, rival hackers close in."',
+    'Write ONE prompt NOW (short, punchy, unique):',
   ].join(' ');
 };
 
@@ -981,12 +983,24 @@ export const shouldRejectGeneratedPrompt = (prompt: string): boolean => {
     return true;
   }
   const lower = prompt.toLowerCase();
+  
+  // Check banned terms
   if (BANNED_TERMS.some((term) => lower.includes(term))) {
     return true;
   }
+  
+  // Check if exact duplicate
   if (recentPrompts.some((recent) => recent.toLowerCase() === lower)) {
     return true;
   }
+  
+  // Strongly discourage overused descriptors (reject if multiple appear)
+  const overusedCount = OVERUSED_DESCRIPTORS.filter(desc => lower.includes(desc)).length;
+  if (overusedCount >= 2) {
+    console.log(`Rejecting prompt with ${overusedCount} overused descriptors: ${prompt}`);
+    return true;
+  }
+  
   return false;
 };
 
@@ -996,21 +1010,25 @@ export const registerGeneratedPrompt = (prompt: string) => {
   }
   pushWithLimit(recentPrompts, prompt, RECENT_PROMPT_HISTORY_LIMIT);
   
-  // Extract and register character names/descriptors from the prompt
-  // Look for patterns like "A [descriptor] [role]" or "[Descriptor] [role]"
-  const characterPatterns = [
-    /^(A |An |The )?([A-Z][a-z]+(?:\s+[a-z]+)?)\s+([a-z\s]+?)\s+(?:must|faces|arrives|has)/i,
-    /^(?:When|At|Time).+?,\s+(a |an |the )?([A-Z][a-z]+(?:\s+[a-z]+)?)\s+([a-z\s]+?)\s+(?:must|faces|arrives)/i,
+  // Extract and register character descriptors from the prompt (more aggressive)
+  // Match common adjectives used to describe characters
+  const descriptorWords = [
+    'exiled', 'cursed', 'haunted', 'rogue', 'battle-scarred', 'enigmatic', 
+    'reckless', 'calculating', 'silver-tongued', 'tech-augmented', 'desperate',
+    'veteran', 'rookie', 'reformed', 'brilliant', 'unhinged', 'determined',
+    'augmented', 'synthetic', 'stranded', 'rebel', 'first-contact', 'wary',
+    'daring', 'retired', 'young', 'sharp-eyed', 'undercover', 'psychic',
+    'disbarred', 'lone', 'resourceful', 'plague', 'convoy', 'soft-spoken',
+    'blind', 'demon', 'celestial', 'dream', 'fearless', 'master', 'double',
+    'silent', 'curious', 'observant', 'mad', 'rune', 'clockwork', 'reluctant',
+    'charismatic', 'wise', 'courageous', 'time-displaced', 'shape-shifting',
+    'immortal', 'sentient', 'ghost-bound', 'living'
   ];
   
-  for (const pattern of characterPatterns) {
-    const match = prompt.match(pattern);
-    if (match) {
-      const descriptor = match[2]?.trim().toLowerCase();
-      if (descriptor && descriptor.length > 3) {
-        pushWithLimit(recentCharacterNames, descriptor, 25);
-      }
-      break;
+  const lowerPrompt = prompt.toLowerCase();
+  for (const word of descriptorWords) {
+    if (lowerPrompt.includes(word)) {
+      pushWithLimit(recentCharacterNames, word, 40);
     }
   }
 };

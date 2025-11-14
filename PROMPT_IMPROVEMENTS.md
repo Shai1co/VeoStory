@@ -2,7 +2,33 @@
 
 ## Summary of Changes
 
-The random AI prompt generation system has been significantly enhanced to provide much more variety and reduce repetitiveness.
+The random AI prompt generation system has been **completely overhauled** to provide maximum variety, eliminate repetition, and generate shorter, punchier prompts.
+
+## Latest Updates (Anti-Repetition & Brevity Focus)
+
+### 🎯 **Aggressive Anti-Repetition System**
+- **Tracks ALL descriptor words** used in prompts (40 most recent)
+- **Explicit warning** sent to AI: "⚠️ CRITICAL: DO NOT USE these overused words: [list]"
+- **Automatic rejection** of prompts with 2+ overused descriptors
+- **Hardcoded avoid list**: "exiled", "cursed", "haunted", "rogue", "enigmatic" 
+- **Deduplication** in avoid list shown to AI
+
+### ✂️ **Shorter, Simpler Prompts**
+- **Character limit reduced**: 220 → **150 characters**
+- **New instruction focus**: "SHORT, PUNCHY, SIMPLE, DIRECT. No fluff."
+- **Simplified format**: "[Character] must [goal]. [Location], [problem]."
+- **Cleaner examples**: Removed verbose, convoluted prompts
+
+### 🎨 **Fresh Character Variety**
+- **New descriptor suggestions**: weathered, scarred, paranoid, broken, feral, elegant, scattered, methodical, impulsive, stoic, volatile, weary, fierce, cunning, naive, jaded, zealous, pragmatic, idealistic, sardonic, melancholic
+- **Simpler roles**: mercenary, courier, scavenger, medic, hacker, pilot, smuggler, detective, thief, scholar, engineer, soldier, merchant, nomad, fugitive, guardian, hunter, outcast, wanderer
+- **Explicitly warns against**: cursed, exiled, haunted, rogue, warrior, mage
+
+### 🔥 **Maximum AI Randomization**
+- **Temperature**: 1.3 → **1.5** (maximum creativity)
+- **TopK**: 64 → **80**
+- **TopP**: 0.98 → **0.99**
+- **Unique variety seed** per request
 
 ## Key Improvements
 

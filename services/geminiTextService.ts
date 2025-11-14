@@ -107,9 +107,9 @@ export async function getRandomPrompt(): Promise<string> {
       }
     ],
     generationConfig: {
-      temperature: 1.3, // Very high creativity for maximum variety
-      topK: 64,
-      topP: 0.98,
+      temperature: 1.5, // Maximum creativity for variety
+      topK: 80,
+      topP: 0.99,
       maxOutputTokens: MAX_PROMPT_OUTPUT_TOKENS // Encourage concise responses
     }
   };
