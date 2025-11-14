@@ -1,22 +1,37 @@
+// Represents a single generated video variant
+export interface VideoGeneration {
+  generationId: string; // Unique ID for this generation attempt
+  videoBlob: Blob;
+  lastFrameDataUrl: string | null;
+  createdAt: number; // Timestamp
+  model?: string; // Which model was used
+}
+
 export interface VideoSegment {
   id: number;
-  videoUrl: string; // This will be a blob URL
+  videoUrl: string; // This will be a blob URL (for the active generation)
   prompt: string;
   lastFrameDataUrl: string | null;
   choices?: string[];
   selectedChoice?: string;
   narrativeType?: string;
+  // New fields for multi-generation support
+  generations?: VideoGeneration[]; // All generated variants (with blob URLs instead of blobs)
+  activeGenerationId?: string; // Which generation is currently active
 }
 
 // Type for storing in IndexedDB, which includes the raw video blob
 export interface StoredVideoSegment {
   id: number;
-  videoBlob: Blob;
+  videoBlob: Blob; // The active generation's blob (for backward compatibility)
   prompt: string;
-  lastFrameDataUrl: string | null;
+  lastFrameDataUrl: string | null; // Last frame of active generation
   choices?: string[];
   selectedChoice?: string;
   narrativeType?: string;
+  // New fields for multi-generation support
+  generations?: VideoGeneration[]; // All generated variants with their blobs
+  activeGenerationId?: string; // Which generation is currently active
 }
 
 export type GenerationIntent = 'initial' | 'continuation';
@@ -44,15 +59,27 @@ export interface GenerationQueueTask {
   narrativeType?: string;
 }
 
+// Type for a generation in serialized format
+export interface SerializableGeneration {
+  generationId: string;
+  videoDataUrl: string; // The blob converted to a base64 data URL
+  lastFrameDataUrl: string | null;
+  createdAt: number;
+  model?: string;
+}
+
 // Type for serializing a segment for file export
 export interface SerializableSegment {
   id: number;
-  videoDataUrl: string; // The blob converted to a base64 data URL
+  videoDataUrl: string; // The active generation's blob converted to a base64 data URL
   prompt: string;
   lastFrameDataUrl: string | null;
   choices?: string[];
   selectedChoice?: string;
   narrativeType?: string;
+  // Multi-generation support
+  generations?: SerializableGeneration[];
+  activeGenerationId?: string;
 }
 
 // Type for the overall export file structure

@@ -4,6 +4,7 @@ import {
   VideoSegment,
   StoredVideoSegment,
   SerializableSegment,
+  SerializableGeneration,
   ExportedStoryFile,
   GenerationQueueTask,
   GenerationIntent,
@@ -15,7 +16,7 @@ import { generateChoices } from './services/veoService';
 import { enhancePrompt } from './services/promptEnhancementService';
 import { VideoGenerationResponse, getProviderErrorMessage } from './services/videoGenerationService';
 import { extractVideoLastFrame } from './utils/canvas';
-import { initDB, saveSegment, loadSegments, clearHistory } from './utils/db';
+import { initDB, saveSegment, loadSegments, clearHistory, addGenerationToSegment, setActiveGeneration, deleteGeneration } from './utils/db';
 import { blobToBase64, base64ToBlob } from './utils/file';
 import { combineVideos, combineVideosWithChoiceOverlays } from './utils/video';
 import { useKeyboardShortcuts } from './utils/useKeyboardShortcuts';
@@ -41,7 +42,8 @@ import { fetchDistinctChoices } from './utils/choiceGeneration';
 import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
 import { hasRequiredApiKeys } from './utils/apiKeys';
 
-const SCROLL_TO_BOTTOM_DELAY_MS = 100;
+const SCROLL_TO_BOTTOM_DELAY_MS = 300;
+const SCROLL_TO_BOTTOM_RETRY_DELAY_MS = 600; // Additional scroll after a longer delay to ensure it works
 const CHOICE_REGEN_LOADING_TITLE = 'Discovering Alternate Paths...';
 const CHOICE_REGENERATION_FAILURE_MESSAGE = 'Could not find fresh choices. Please try again.';
 const CHOICE_REGENERATION_MISSING_FRAME_MESSAGE = 'Unable to regenerate choices because the reference frame is unavailable.';
@@ -149,10 +151,19 @@ export default function App() {
     await initDB();
     const storedSegments = await loadSegments();
     if (storedSegments.length > 0) {
-        const loadedSegments = storedSegments.map(s => ({
+        const loadedSegments = storedSegments.map(s => {
+          // Convert generations with blob URLs
+          const generationsWithUrls = s.generations?.map(gen => ({
+            ...gen,
+            // Keep the blob as-is, we'll create URLs in the component as needed
+          }));
+
+          return {
             ...s,
-            videoUrl: URL.createObjectURL(s.videoBlob)
-        }));
+            videoUrl: URL.createObjectURL(s.videoBlob),
+            generations: generationsWithUrls,
+          };
+        });
         setVideoSegments(loadedSegments);
         const lastSegment = loadedSegments[loadedSegments.length - 1];
         setCurrentSegmentId(lastSegment.id);
@@ -369,34 +380,75 @@ export default function App() {
   const handleGenerationTaskSuccess = useCallback(
     async (task: GenerationQueueTask, response: VideoGenerationResponse) => {
       const { videoBlob } = response;
-      const storedSegment: StoredVideoSegment = {
-        id: task.segmentId,
-        prompt: task.prompt,
-        videoBlob,
-        lastFrameDataUrl: null,
-        narrativeType: task.narrativeType,
-      };
+      
+      // Check if this is a regeneration of an existing segment
+      const existingSegmentIndex = videoSegments.findIndex(seg => seg.id === task.segmentId);
+      const isRegeneration = existingSegmentIndex !== -1;
+      
+      if (isRegeneration) {
+        // Add as a new generation to existing segment
+        const generationId = await addGenerationToSegment(
+          task.segmentId,
+          videoBlob,
+          null, // Last frame will be extracted later if needed
+          task.model
+        );
+        
+        // Reload from DB to get updated segment
+        await loadGameFromDB();
+        setLoadingTitle('');
+        setGameState(GameState.PLAYING);
+      } else {
+        // Create new segment with initial generation
+        const generationId = `gen-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const storedSegment: StoredVideoSegment = {
+          id: task.segmentId,
+          prompt: task.prompt,
+          videoBlob,
+          lastFrameDataUrl: null,
+          narrativeType: task.narrativeType,
+          generations: [{
+            generationId,
+            videoBlob,
+            lastFrameDataUrl: null,
+            createdAt: Date.now(),
+            model: task.model,
+          }],
+          activeGenerationId: generationId,
+        };
 
-      await saveSegment(storedSegment);
+        await saveSegment(storedSegment);
 
-      const videoUrl = URL.createObjectURL(videoBlob);
-      const newSegment: VideoSegment = {
-        id: storedSegment.id,
-        prompt: storedSegment.prompt,
-        videoUrl,
-        lastFrameDataUrl: storedSegment.lastFrameDataUrl,
-        choices: storedSegment.choices,
-        selectedChoice: storedSegment.selectedChoice,
-        narrativeType: storedSegment.narrativeType,
-      };
+        const videoUrl = URL.createObjectURL(videoBlob);
+        const newSegment: VideoSegment = {
+          id: storedSegment.id,
+          prompt: storedSegment.prompt,
+          videoUrl,
+          lastFrameDataUrl: storedSegment.lastFrameDataUrl,
+          choices: storedSegment.choices,
+          selectedChoice: storedSegment.selectedChoice,
+          narrativeType: storedSegment.narrativeType,
+          generations: [{
+            generationId,
+            videoBlob,
+            lastFrameDataUrl: null,
+            createdAt: Date.now(),
+            model: task.model,
+          }],
+          activeGenerationId: generationId,
+        };
 
-      setVideoSegments((prev) => [...prev, newSegment]);
-      setCurrentSegmentId(storedSegment.id);
-      setLoadingTitle('');
-      setGameState(GameState.PLAYING);
-      setTimeout(scrollToBottom, SCROLL_TO_BOTTOM_DELAY_MS);
+        setVideoSegments((prev) => [...prev, newSegment]);
+        setCurrentSegmentId(storedSegment.id);
+        setLoadingTitle('');
+        setGameState(GameState.PLAYING);
+        
+        // Scroll to bottom with multiple attempts to ensure the new video is visible
+        setTimeout(scrollToBottom, SCROLL_TO_BOTTOM_DELAY_MS);
+        setTimeout(scrollToBottom, SCROLL_TO_BOTTOM_RETRY_DELAY_MS);
+      }
     },
-    [scrollToBottom],
+    [scrollToBottom, videoSegments, loadGameFromDB],
   );
 
   const handleGenerationTaskError = useCallback(
@@ -872,17 +924,35 @@ export default function App() {
 
     try {
       const serializableSegments: SerializableSegment[] = await Promise.all(
-        segmentsToExport.map(async (segment) => ({
-          id: segment.id,
-          prompt: segment.prompt,
-          lastFrameDataUrl: segment.lastFrameDataUrl,
-          choices: segment.choices,
-          selectedChoice: segment.selectedChoice,
-          videoDataUrl: await blobToBase64(segment.videoBlob),
-        }))
+        segmentsToExport.map(async (segment) => {
+          // Convert all generations to serializable format
+          const serializableGenerations = segment.generations
+            ? await Promise.all(
+                segment.generations.map(async (gen) => ({
+                  generationId: gen.generationId,
+                  videoDataUrl: await blobToBase64(gen.videoBlob),
+                  lastFrameDataUrl: gen.lastFrameDataUrl,
+                  createdAt: gen.createdAt,
+                  model: gen.model,
+                }))
+              )
+            : undefined;
+
+          return {
+            id: segment.id,
+            prompt: segment.prompt,
+            lastFrameDataUrl: segment.lastFrameDataUrl,
+            choices: segment.choices,
+            selectedChoice: segment.selectedChoice,
+            narrativeType: segment.narrativeType,
+            videoDataUrl: await blobToBase64(segment.videoBlob),
+            generations: serializableGenerations,
+            activeGenerationId: segment.activeGenerationId,
+          };
+        })
       );
       
-      const exportData: ExportedStoryFile = { version: 1, segments: serializableSegments };
+      const exportData: ExportedStoryFile = { version: 2, segments: serializableSegments };
       const jsonString = JSON.stringify(exportData, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1010,7 +1080,46 @@ export default function App() {
         videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
         setVideoSegments([]);
         
-        const importedSegments: StoredVideoSegment[] = data.segments.map(s => ({ ...s, videoBlob: base64ToBlob(s.videoDataUrl) }));
+        const importedSegments: StoredVideoSegment[] = data.segments.map(s => {
+          // Handle version 1 (old format without generations)
+          if (data.version === 1 || !s.generations) {
+            const videoBlob = base64ToBlob(s.videoDataUrl);
+            const generationId = `gen-imported-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            return {
+              ...s,
+              videoBlob,
+              generations: [{
+                generationId,
+                videoBlob,
+                lastFrameDataUrl: s.lastFrameDataUrl,
+                createdAt: Date.now(),
+                model: undefined,
+              }],
+              activeGenerationId: generationId,
+            };
+          }
+          
+          // Handle version 2 (new format with generations)
+          const generations = s.generations!.map(gen => ({
+            generationId: gen.generationId,
+            videoBlob: base64ToBlob(gen.videoDataUrl),
+            lastFrameDataUrl: gen.lastFrameDataUrl,
+            createdAt: gen.createdAt,
+            model: gen.model,
+          }));
+          
+          // Find active generation or use the first one
+          const activeGen = generations.find(g => g.generationId === s.activeGenerationId) || generations[0];
+          
+          return {
+            ...s,
+            videoBlob: activeGen.videoBlob,
+            lastFrameDataUrl: activeGen.lastFrameDataUrl,
+            generations,
+            activeGenerationId: activeGen.generationId,
+          };
+        });
         
         for (const segment of importedSegments) {
           await saveSegment(segment);
@@ -1024,6 +1133,49 @@ export default function App() {
     };
     reader.readAsText(file);
   };
+
+  // Video generation management handlers
+  const handleRegenerateVideo = useCallback(async (segmentId: number) => {
+    const segment = videoSegments.find(s => s.id === segmentId);
+    if (!segment) return;
+
+    // Create a new generation task for this segment
+    await enqueueTask({
+      id: `regen-${Date.now()}`,
+      segmentId: segment.id,
+      prompt: segment.prompt,
+      model: selectedModel,
+      imageData: segment.lastFrameDataUrl,
+      intent: 'continuation', // Use continuation since we have context
+      status: 'queued',
+      createdAt: Date.now(),
+      narrativeType: segment.narrativeType,
+    });
+    
+    setLoadingTitle(`Regenerating video for segment ${videoSegments.indexOf(segment) + 1}...`);
+  }, [videoSegments, selectedModel, enqueueTask]);
+
+  const handleSelectGeneration = useCallback(async (segmentId: number, generationId: string) => {
+    try {
+      await setActiveGeneration(segmentId, generationId);
+      await loadGameFromDB();
+      console.log(`Switched to generation ${generationId} for segment ${segmentId}`);
+    } catch (error) {
+      console.error('Failed to switch generation:', error);
+      handleError(error, 'switching video generation');
+    }
+  }, [loadGameFromDB]);
+
+  const handleDeleteGeneration = useCallback(async (segmentId: number, generationId: string) => {
+    try {
+      await deleteGeneration(segmentId, generationId);
+      await loadGameFromDB();
+      console.log(`Deleted generation ${generationId} from segment ${segmentId}`);
+    } catch (error) {
+      console.error('Failed to delete generation:', error);
+      handleError(error, 'deleting video generation');
+    }
+  }, [loadGameFromDB]);
 
   const resetGame = () => {
     setShowConfirmation({
@@ -1274,6 +1426,10 @@ export default function App() {
                         isCurrentSegment && gameState === GameState.GENERATING_CHOICES;
                     const isCustomPromptSubmitting =
                         isCurrentSegment && gameState === GameState.GENERATING_VIDEO;
+                    const isRegeneratingVideo = generationTasks.some(
+                      task => task.segmentId === segment.id && task.status === 'running'
+                    );
+                    
                     return (
                         <SegmentDisplay
                             key={segment.id}
@@ -1302,6 +1458,10 @@ export default function App() {
                             onCustomPromptSubmit={canRegenerateForSegment ? handleCustomPromptSubmit : undefined}
                             isCustomPromptSubmitting={isCustomPromptSubmitting}
                             isGlobalMuted={isGlobalMuted}
+                            onRegenerateVideo={() => handleRegenerateVideo(segment.id)}
+                            onSelectGeneration={(genId) => handleSelectGeneration(segment.id, genId)}
+                            onDeleteGeneration={(genId) => handleDeleteGeneration(segment.id, genId)}
+                            isRegeneratingVideo={isRegeneratingVideo}
                         />
                     )
                 })}

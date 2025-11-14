@@ -1,7 +1,8 @@
 import React from 'react';
-import { GameState, VideoSegment } from '../types';
+import { GameState, VideoSegment, VideoGeneration } from '../types';
 import VideoPlayer from './VideoPlayer';
 import ChoiceOptions from './ChoiceOptions';
+import GenerationSelector from './GenerationSelector';
 import { getNarrativeTypeById } from '../config/narrativeTypes';
 
 interface SegmentDisplayProps {
@@ -27,6 +28,11 @@ interface SegmentDisplayProps {
   onCustomPromptSubmit?: () => void;
   isCustomPromptSubmitting?: boolean;
   isGlobalMuted?: boolean;
+  // New props for video generation management
+  onRegenerateVideo?: () => void;
+  onSelectGeneration?: (generationId: string) => void;
+  onDeleteGeneration?: (generationId: string) => void;
+  isRegeneratingVideo?: boolean;
 }
 
 const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
@@ -52,10 +58,20 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
   onCustomPromptSubmit,
   isCustomPromptSubmitting = false,
   isGlobalMuted = false,
+  onRegenerateVideo,
+  onSelectGeneration,
+  onDeleteGeneration,
+  isRegeneratingVideo = false,
 }) => {
   const promptLabel = index === 0 ? 'You began with:' : 'Then you chose:';
   const shouldShowOverlay = isCurrent && (segment.choices || isChoiceLoading);
   const narrativeType = segment.narrativeType ? getNarrativeTypeById(segment.narrativeType) : null;
+
+  // Prepare generations with blob URLs for the selector
+  const generationsWithUrls = segment.generations?.map(gen => ({
+    ...gen,
+    videoUrl: URL.createObjectURL(gen.videoBlob),
+  })) || [];
 
   return (
     <div
@@ -76,15 +92,32 @@ const SegmentDisplay: React.FC<SegmentDisplayProps> = ({
           </span>
         )}
       </div>
-      <VideoPlayer
-        videoSegment={segment}
-        onVideoEnd={onVideoEnd}
-        onProgress={onVideoProgress}
-        isCurrent={isCurrent}
-        segmentIndex={index}
-        onClick={onSegmentSelect}
-        isGlobalMuted={isGlobalMuted}
-      />
+      
+      {/* Video player with generation selector overlay */}
+      <div className="relative">
+        <VideoPlayer
+          videoSegment={segment}
+          onVideoEnd={onVideoEnd}
+          onProgress={onVideoProgress}
+          isCurrent={isCurrent}
+          segmentIndex={index}
+          onClick={onSegmentSelect}
+          isGlobalMuted={isGlobalMuted}
+        />
+        
+        {/* Generation selector - only show if we have callbacks */}
+        {onRegenerateVideo && onSelectGeneration && onDeleteGeneration && segment.activeGenerationId && (
+          <GenerationSelector
+            generations={generationsWithUrls}
+            activeGenerationId={segment.activeGenerationId}
+            onSelectGeneration={onSelectGeneration}
+            onDeleteGeneration={onDeleteGeneration}
+            onRegenerateVideo={onRegenerateVideo}
+            isRegenerating={isRegeneratingVideo}
+            segmentIndex={index}
+          />
+        )}
+      </div>
 
       {shouldShowOverlay && (
         <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center px-4">
