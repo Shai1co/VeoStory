@@ -1,6 +1,20 @@
 /**
  * Replicate - Stable Video Diffusion Service
  * Uses Replicate's API to run Stable Video Diffusion model
+ * 
+ * CORS PROXY CONFIGURATION:
+ * -------------------------
+ * Replicate API does NOT support direct browser access due to CORS restrictions.
+ * This service uses corsproxy.io to proxy requests from browser-based deployments
+ * (like GitHub Pages). 
+ * 
+ * To disable CORS proxy (e.g., for server-side deployments):
+ * Set USE_CORS_PROXY = false below
+ * 
+ * Alternative CORS proxies if corsproxy.io is down:
+ * - https://cors-anywhere.herokuapp.com/
+ * - https://api.allorigins.win/raw?url=
+ * - Self-hosted proxy (recommended for production)
  */
 
 import { getApiKey } from '../utils/apiKeys';
@@ -29,10 +43,20 @@ interface ReplicateCreateRequest {
 }
 
 // Replicate API configuration
-// Direct API calls (no proxy needed - CORS is allowed by Replicate)
+// NOTE: Replicate does NOT allow direct browser access (CORS restrictions)
+// Using CORS proxy for browser-based deployments
+const USE_CORS_PROXY = true; // Set to true for browser deployments (GitHub Pages, etc.)
+const CORS_PROXY_PREFIX = 'https://corsproxy.io/?';
 const REPLICATE_API_BASE = 'https://api.replicate.com/v1';
 const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
 const MAX_POLL_ATTEMPTS = 180; // 6 minutes max
+
+/**
+ * Wraps a URL with CORS proxy if enabled
+ */
+function getCorsProxiedUrl(url: string): string {
+  return USE_CORS_PROXY ? `${CORS_PROXY_PREFIX}${encodeURIComponent(url)}` : url;
+}
 
 /**
  * Model version hashes for Replicate
@@ -274,7 +298,8 @@ export async function createReplicatePrediction(
     options: finalOptions
   });
 
-  const response = await fetch(endpoint, {
+  const url = getCorsProxiedUrl(endpoint);
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -333,7 +358,8 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
     const elapsedTime = Math.round((Date.now() - startTime) / 1000);
     console.log(`🔄 [DEBUG] Poll attempt ${attempts + 1}/${MAX_POLL_ATTEMPTS} (elapsed: ${elapsedTime}s)`);
 
-    const response = await fetch(`${REPLICATE_API_BASE}/predictions/${predictionId}`, {
+    const url = getCorsProxiedUrl(`${REPLICATE_API_BASE}/predictions/${predictionId}`);
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -422,7 +448,8 @@ export async function generateReplicateVideo(
  * Fetch video blob from URL
  */
 export async function fetchReplicateVideoBlob(videoUrl: string): Promise<Blob> {
-  const response = await fetch(videoUrl);
+  const url = getCorsProxiedUrl(videoUrl);
+  const response = await fetch(url);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch Replicate video: ${response.statusText}`);
@@ -457,7 +484,8 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   };
 
   console.log('🎨 [DEBUG] Sending request to Replicate API...');
-  const response = await fetch(`${REPLICATE_API_BASE}/predictions`, {
+  const url = getCorsProxiedUrl(`${REPLICATE_API_BASE}/predictions`);
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -498,7 +526,8 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   
   // Fetch the image and convert to data URL
   console.log('📥 [DEBUG] Fetching FLUX image from URL...');
-  const imageResponse = await fetch(imageUrl);
+  const url = getCorsProxiedUrl(imageUrl);
+  const imageResponse = await fetch(url);
   console.log('📥 [DEBUG] Image fetch response status:', imageResponse.status);
 
   if (!imageResponse.ok) {
