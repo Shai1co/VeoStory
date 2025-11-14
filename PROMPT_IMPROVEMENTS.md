@@ -121,12 +121,30 @@ Added **8 different template structures** instead of always using the same formu
 
 ### 4. **Improved AI-Generated Prompts**
 
-Enhanced the Gemini instruction prompt to:
-- Request more diverse protagonist types
-- Ask for varied sentence structures
-- Provide better examples
-- Emphasize avoiding generic characters
-- Encourage genre mixing and creative combinations
+Enhanced the Gemini AI randomization with intelligent anti-repetition:
+
+**Character Name Tracking:**
+- Automatically extracts and tracks recently used character descriptors (last 25)
+- Passes this list to AI with explicit instructions to avoid repetition
+- Example: "AVOID REPEATING these recently used character descriptors: haunted, battle-scarred, enigmatic..."
+
+**Enhanced AI Instructions:**
+- More specific protagonist archetypes suggested (artificers, bounty hunters, shamans, etc.)
+- Better character descriptor examples ("silver-tongued", "tech-augmented", "unhinged")
+- New diverse example prompts that showcase variety
+- Explicit emphasis on creating "FRESH and DIFFERENT" characters
+
+**Increased Randomization:**
+- Temperature increased: 1.0 → **1.3** (very high creativity)
+- TopK increased: 50 → **64**
+- TopP increased: 0.95 → **0.98**
+- Added unique **variety seed** to each request to prevent identical responses
+
+**Better Examples:**
+- Replaced generic examples with more creative ones
+- "A battle-scarred cyber medic must extract a rogue AI from a dying patient"
+- "A silver-tongued con artist has one last job: steal a memory from a god"
+- "A curious xenoarchaeologist must decode alien warnings before the planet tears itself apart"
 
 ## Mathematical Impact
 

@@ -6,6 +6,7 @@
 import {
   buildFreeformGeminiInstruction,
   getNextBlueprint,
+  getRecentCharacterNames,
   registerGeneratedPrompt,
   renderPromptFromBlueprint,
   shouldRejectGeneratedPrompt,
@@ -80,7 +81,13 @@ export async function getRandomPrompt(): Promise<string> {
     throw new Error('GEMINI_API_KEY is not set in environment variables');
   }
 
-  const systemPrompt = buildFreeformGeminiInstruction();
+  // Get recent character names to avoid repetition
+  const recentNames = getRecentCharacterNames();
+  
+  // Add a variety seed to make each request unique
+  const varietySeed = Math.floor(Math.random() * 1000000);
+  let systemPrompt = buildFreeformGeminiInstruction(recentNames);
+  systemPrompt += ` [Variety seed: ${varietySeed}]`;
 
   const produceFallbackPrompt = () => {
     const fallbackBlueprint = getNextBlueprint();
@@ -100,9 +107,9 @@ export async function getRandomPrompt(): Promise<string> {
       }
     ],
     generationConfig: {
-      temperature: 1.0, // High creativity
-      topK: 50,
-      topP: 0.95,
+      temperature: 1.3, // Very high creativity for maximum variety
+      topK: 64,
+      topP: 0.98,
       maxOutputTokens: MAX_PROMPT_OUTPUT_TOKENS // Encourage concise responses
     }
   };

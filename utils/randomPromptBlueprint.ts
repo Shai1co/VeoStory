@@ -78,6 +78,7 @@ const BANNED_TERMS = ['tea', 'tea shop', 'barista', 'café', 'coffee shop'];
 
 const recentBlueprintIds: string[] = [];
 const recentPrompts: string[] = [];
+const recentCharacterNames: string[] = [];
 
 interface CharacterArchetype {
   descriptor: string;
@@ -937,21 +938,27 @@ export const renderPromptFromBlueprint = (blueprint: AdventurePromptBlueprint): 
   return prompt;
 };
 
-export const buildFreeformGeminiInstruction = (): string => {
+export const buildFreeformGeminiInstruction = (recentCharacterNames?: string[]): string => {
+  const avoidClause = recentCharacterNames && recentCharacterNames.length > 0
+    ? `AVOID REPEATING these recently used character descriptors: ${recentCharacterNames.slice(-10).join(', ')}. Create something FRESH and DIFFERENT. `
+    : '';
+  
   return [
     'You are creating an exciting opening for an interactive visual novel adventure.',
     `Write a compelling 2-sentence prompt under ${TARGET_PROMPT_CHARACTER_LIMIT} characters that hooks the reader immediately.`,
     'STRUCTURE: Introduce a unique protagonist with personality (not generic), establish a vivid location, present a clear objective or conflict, and include immediate tension or stakes.',
     'VARIETY: Mix up sentence structures. Try different openings (character first, location first, tension first, time pressure, etc.).',
-    'PROTAGONIST DIVERSITY: Explore different archetypes - warriors, mages, scientists, rogues, diplomats, survivors, investigators, rebels, etc. Make them memorable.',
+    'PROTAGONIST DIVERSITY: Explore different archetypes - warriors, mages, scientists, rogues, diplomats, survivors, investigators, rebels, explorers, artificers, assassins, healers, pilots, hackers, bounty hunters, merchants, spies, shamans, etc. Make them memorable with unique descriptors.',
+    avoidClause,
+    'CHARACTER EXAMPLES (for variety, create different ones): "battle-scarred", "enigmatic", "reckless", "calculating", "haunted", "silver-tongued", "tech-augmented", "cursed", "exiled", "rookie", "veteran", "reformed", "rogue", "desperate", "brilliant", "unhinged", etc.',
     'GENRE VARIETY: Fantasy, sci-fi, cyberpunk, post-apocalyptic, horror, mystery, steampunk, space opera, supernatural, etc. Mix and match elements creatively.',
     'TONE VARIETY: Can be epic, tense, mysterious, hopeful, grim, urgent, playful, dramatic, etc.',
-    'AVOID: Generic characters (just "a warrior"), passive scenes, tea shops, cafes, coffee, modern mundane settings.',
-    'EXAMPLES for inspiration (create something different):',
-    '"A haunted journalist conspiracy tracker must trace a conspiracy to its hidden source. At rain-soaked alleyways of the lower district, their cover is blown."',
-    '"When reality begins to distort around them, a blind oracle seer of futures must prevent a ritual that would awaken an ancient evil at nexus where ley lines converge."',
-    '"Time is running out. A rogue AI specialist digital ghost must close a dimensional rift spreading through reality at server farm housing imprisoned AIs before the deadline has been moved up."',
-    'Now create ONE completely original prompt (2 sentences, no numbering, no alternatives, just the prompt):',
+    'AVOID: Generic characters (just "a warrior" or "a mage"), passive scenes, tea shops, cafes, coffee, modern mundane settings.',
+    'EXAMPLES for inspiration (create something completely different):',
+    '"A battle-scarred cyber medic must extract a rogue AI from a dying patient. In the neon-lit underground clinic, corporate kill squads breach the entrance."',
+    '"When ancient machinery awakens beneath the ice, a curious xenoarchaeologist must decode alien warnings before the planet tears itself apart."',
+    '"A silver-tongued con artist has one last job: steal a memory from a god. At the celestial auction house, divine guards sense the deception."',
+    'Now create ONE completely original and unique prompt (2 sentences, no numbering, no alternatives, just the prompt):',
   ].join(' ');
 };
 
@@ -988,6 +995,28 @@ export const registerGeneratedPrompt = (prompt: string) => {
     return;
   }
   pushWithLimit(recentPrompts, prompt, RECENT_PROMPT_HISTORY_LIMIT);
+  
+  // Extract and register character names/descriptors from the prompt
+  // Look for patterns like "A [descriptor] [role]" or "[Descriptor] [role]"
+  const characterPatterns = [
+    /^(A |An |The )?([A-Z][a-z]+(?:\s+[a-z]+)?)\s+([a-z\s]+?)\s+(?:must|faces|arrives|has)/i,
+    /^(?:When|At|Time).+?,\s+(a |an |the )?([A-Z][a-z]+(?:\s+[a-z]+)?)\s+([a-z\s]+?)\s+(?:must|faces|arrives)/i,
+  ];
+  
+  for (const pattern of characterPatterns) {
+    const match = prompt.match(pattern);
+    if (match) {
+      const descriptor = match[2]?.trim().toLowerCase();
+      if (descriptor && descriptor.length > 3) {
+        pushWithLimit(recentCharacterNames, descriptor, 25);
+      }
+      break;
+    }
+  }
+};
+
+export const getRecentCharacterNames = (): string[] => {
+  return [...recentCharacterNames];
 };
 
 export const createManualRandomPrompt = (): string => {
