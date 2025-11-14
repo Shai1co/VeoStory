@@ -21,6 +21,7 @@ interface GeminiImageRequest {
     topK: number;
     topP: number;
     maxOutputTokens: number;
+    responseMimeType?: string;
   };
 }
 
@@ -79,7 +80,8 @@ export async function generateGeminiImage(
       temperature: 0.7,
       topK: 40,
       topP: 0.95,
-      maxOutputTokens: 1024
+      maxOutputTokens: 1024,
+      responseMimeType: 'image/png'
     }
   };
 
