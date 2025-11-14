@@ -484,8 +484,8 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   };
 
   console.log('🎨 [DEBUG] Sending request to Replicate API...');
-  const url = getCorsProxiedUrl(`${REPLICATE_API_BASE}/predictions`);
-  const response = await fetch(url, {
+  const apiUrl = getCorsProxiedUrl(`${REPLICATE_API_BASE}/predictions`);
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -526,8 +526,8 @@ async function generateImageWithFlux(prompt: string): Promise<string> {
   
   // Fetch the image and convert to data URL
   console.log('📥 [DEBUG] Fetching FLUX image from URL...');
-  const url = getCorsProxiedUrl(imageUrl);
-  const imageResponse = await fetch(url);
+  const proxiedImageUrl = getCorsProxiedUrl(imageUrl);
+  const imageResponse = await fetch(proxiedImageUrl);
   console.log('📥 [DEBUG] Image fetch response status:', imageResponse.status);
 
   if (!imageResponse.ok) {

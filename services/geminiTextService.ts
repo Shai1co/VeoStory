@@ -291,17 +291,25 @@ async function invokeGemini(
     }
 
     const candidate = result.candidates[0];
+    const hasContent = candidate.content && candidate.content.parts && candidate.content.parts.length > 0;
+    const rawText = hasContent ? candidate.content!.parts[0].text ?? '' : '';
+    let generatedText = rawText.trim();
 
-    // Check if the model finished due to hitting token limit or other non-success reasons
     if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      throw new Error(`Gemini generation stopped due to: ${candidate.finishReason}. Try adjusting the prompt or token limits.`);
+      if (generatedText.length > 0) {
+        console.warn(
+          `⚠️ Gemini generation finished with ${candidate.finishReason}, using partial text output.`,
+        );
+      } else {
+        throw new Error(
+          `Gemini generation stopped due to: ${candidate.finishReason}. Try adjusting the prompt or token limits.`,
+        );
+      }
     }
 
-    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
+    if (!generatedText) {
       throw new Error('Gemini response has no text content.');
     }
-
-    const generatedText = candidate.content.parts[0].text.trim();
 
     // Clean up the text - remove quotes if wrapped
     let cleanedText = generatedText;
