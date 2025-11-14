@@ -279,7 +279,7 @@ const LOCATIONS: Array<WeightedEntry<string>> = [
   { value: 'derelict space hulk drifting in the void', weight: 1 },
   { value: 'terraforming facility on a dying planet', weight: 1 },
   { value: 'asteroid mining colony', weight: 1 },
-  { value: 'generation ship's hydroponic gardens', weight: 1 },
+  { value: 'generation ship\'s hydroponic gardens', weight: 1 },
   { value: 'quantum research lab between dimensions', weight: 1 },
   { value: 'alien marketplace on a neutral moon', weight: 1 },
   { value: 'cryosleep bay of a colony vessel', weight: 1 },
@@ -300,7 +300,7 @@ const LOCATIONS: Array<WeightedEntry<string>> = [
   { value: 'nexus where ley lines converge', weight: 1 },
   { value: 'mirror maze reflecting alternate realities', weight: 1 },
   { value: 'dreamscape library of infinite shelves', weight: 1 },
-  { value: 'witch's cottage at the edge of nowhere', weight: 1 },
+  { value: 'witch\'s cottage at the edge of nowhere', weight: 1 },
   { value: 'spirit realm gateway in a moonlit clearing', weight: 1 },
   { value: 'tower that exists in multiple timelines', weight: 1 },
   { value: 'cathedral built from crystallized prayers', weight: 1 },
@@ -324,13 +324,13 @@ const LOCATIONS: Array<WeightedEntry<string>> = [
   // Underground & Hidden
   { value: 'archive stacks fading into dark', weight: 1 },
   { value: 'secret base carved into glacier ice', weight: 1 },
-  { value: 'smuggler's den in the sewers', weight: 1 },
+  { value: 'smuggler\'s den in the sewers', weight: 1 },
   { value: 'underground river leading to unknown depths', weight: 1 },
   { value: 'vault containing forbidden knowledge', weight: 1 },
   
   // Exotic & Unique
   { value: 'pocket dimension of endless doors', weight: 1 },
-  { value: 'living ship's neural chamber', weight: 1 },
+  { value: 'living ship\'s neural chamber', weight: 1 },
   { value: 'battlefield frozen in a time loop', weight: 1 },
   { value: 'carnival that appears only at midnight', weight: 1 },
   { value: 'prison built from crystallized screams', weight: 1 },

@@ -106,6 +106,44 @@ _Note: You'll need to provide your own API keys to use the app (see below)._
 
 [📖 Stability AI Documentation](https://platform.stability.ai/docs/getting-started/authentication)
 
+## 📊 Google Analytics Setup (Optional)
+
+The app includes Google Analytics 4 for tracking usage and user behavior. To enable analytics:
+
+### 1. Create a Google Analytics 4 Property
+
+1. Go to [Google Analytics](https://analytics.google.com/)
+2. Click "Start measuring" → "Web"
+3. Enter your website details:
+   - **Website name:** `Veo Visual Novel`
+   - **Website URL:** `https://Shai1co.github.io/VeoStory/` (or your custom domain)
+   - **Industry:** Select "Arts and Entertainment" or "Technology"
+4. Click "Create" and accept the terms
+
+### 2. Get Your Measurement ID
+
+1. In your GA4 property, go to **Admin** (bottom left gear icon)
+2. Under "Property", click **Data streams**
+3. Click on your web data stream
+4. Copy the **Measurement ID** (starts with `G-XXXXXXXXXX`)
+
+### 3. Configure the App
+
+1. Open `index.html` in your project
+2. Replace `GA_MEASUREMENT_ID` on lines 11 and 16 with your actual Measurement ID
+3. Commit and push the changes
+
+### What Gets Tracked
+
+- **Page views** for different app states (start screen, image preview, video watching, etc.)
+- **User interactions** (story creation, choice selection, video generation)
+- **Technical events** (successful/failed video generations, story exports/imports)
+- **No personal data** is collected - all tracking is anonymous
+
+### Privacy Note
+
+Analytics helps understand how users interact with the app to improve the experience. All data collection follows Google's privacy standards and can be disabled by users through browser privacy settings.
+
 ## 💰 Cost Estimates
 
 | Provider | Model | Cost per Generation | Notes |

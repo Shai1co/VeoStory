@@ -41,6 +41,7 @@ import { buildPrompt } from './utils/prompt';
 import { fetchDistinctChoices } from './utils/choiceGeneration';
 import { buildStoryContext, categorizeChoice } from './utils/storyContextBuilder';
 import { hasRequiredApiKeys } from './utils/apiKeys';
+import { trackGameState, trackStoryEvent, trackChoiceSelection, trackVideoGeneration } from './utils/analytics';
 
 const SCROLL_TO_BOTTOM_DELAY_MS = 300;
 const SCROLL_TO_BOTTOM_RETRY_DELAY_MS = 600; // Additional scroll after a longer delay to ensure it works
@@ -224,6 +225,15 @@ export default function App() {
     }
   }, [videoSegments.length]);
 
+  // Track game state changes for analytics
+  useEffect(() => {
+    trackGameState(gameState, {
+      segment_count: videoSegments.length,
+      current_segment: currentSegmentId,
+      has_choices: choices.length > 0,
+    });
+  }, [gameState, videoSegments.length, currentSegmentId, choices.length]);
+
   const scrollToBottom = useCallback(() => {
     if (mainContentRef.current) {
       mainContentRef.current.scrollTop = mainContentRef.current.scrollHeight;
@@ -380,11 +390,14 @@ export default function App() {
   const handleGenerationTaskSuccess = useCallback(
     async (task: GenerationQueueTask, response: VideoGenerationResponse) => {
       const { videoBlob } = response;
-      
+
+      // Track successful video generation
+      trackVideoGeneration(task.model, task.intent, true);
+
       // Check if this is a regeneration of an existing segment
       const existingSegmentIndex = videoSegments.findIndex(seg => seg.id === task.segmentId);
       const isRegeneration = existingSegmentIndex !== -1;
-      
+
       if (isRegeneration) {
         // Add as a new generation to existing segment
         const generationId = await addGenerationToSegment(
@@ -454,6 +467,10 @@ export default function App() {
   const handleGenerationTaskError = useCallback(
     async (task: GenerationQueueTask, error: Error) => {
       console.error('Video generation task failed:', task, error);
+
+      // Track failed video generation
+      trackVideoGeneration(task.model, task.intent, false);
+
       const message = getProviderErrorMessage(task.model, error);
       setErrorMessage(message);
       setGameState(GameState.ERROR);
@@ -626,6 +643,15 @@ export default function App() {
   const startNewGame = async (prompt: string, stylePreset: StylePreset | null, narrativeType: NarrativeType) => {
     // Store the narrative type for this session
     setSelectedNarrativeType(narrativeType);
+
+    // Track story creation
+    trackStoryEvent('start', {
+      narrative_type: narrativeType.id,
+      has_style_preset: !!stylePreset,
+      model: selectedModel,
+      image_model: selectedImageModel,
+    });
+
     await generateInitialImage(prompt, stylePreset, narrativeType);
   };
 
@@ -855,6 +881,10 @@ export default function App() {
     const lastSegment = videoSegments[videoSegments.length - 1];
     if (lastSegment && lastSegment.lastFrameDataUrl) {
       try {
+        // Track choice selection
+        const choiceIndex = lastSegment.choices?.indexOf(choice) ?? -1;
+        trackChoiceSelection(choiceIndex, lastSegment.choices?.length ?? 0, lastSegment.id);
+
         setChoices([]);
         setChoiceRegenerationError(null);
         // Clear prefetch state for next video
@@ -862,7 +892,7 @@ export default function App() {
         setIsPrefetchingChoices(false);
         setIsCustomPromptOpen(false);
         setCustomPromptValue('');
-        
+
         const blob = await(await fetch(lastSegment.videoUrl)).blob();
         const segmentToUpdate: StoredVideoSegment = { ...lastSegment, videoBlob: blob, selectedChoice: choice };
         await saveSegment(segmentToUpdate);
@@ -870,15 +900,15 @@ export default function App() {
 
         setGameState(GameState.GENERATING_VIDEO);
         setLoadingTitle('Enhancing Your Choice...');
-        
+
         // Enhance the choice to make it more game-like and adventurous
         const storyContext = videoSegments.map(s => s.prompt).join(' Then, ');
-        const enhancedChoice = await enhancePrompt(choice, { 
-          isInitial: false, 
+        const enhancedChoice = await enhancePrompt(choice, {
+          isInitial: false,
           previousContext: storyContext,
           narrativeType: selectedNarrativeType
         });
-        
+
         setLoadingTitle('Bringing Your Choice to Life...');
         await queueVideoGeneration(enhancedChoice, 'continuation', lastSegment.lastFrameDataUrl, selectedNarrativeType.id);
       } catch (error) {
@@ -918,7 +948,13 @@ export default function App() {
       });
       return;
     }
-    
+
+    // Track story export
+    trackStoryEvent('export', {
+      segment_count: segmentsToExport.length,
+      export_type: 'story'
+    });
+
     setLoadingTitle("Exporting your story...");
     setGameState(GameState.EXPORTING);
 
@@ -1075,7 +1111,13 @@ export default function App() {
         const data: ExportedStoryFile = JSON.parse(text);
 
         if (!data.version || !Array.isArray(data.segments)) throw new Error("Invalid story file format.");
-        
+
+        // Track story import
+        trackStoryEvent('import', {
+          segment_count: data.segments.length,
+          import_version: data.version
+        });
+
         await clearHistory();
         videoSegments.forEach(segment => URL.revokeObjectURL(segment.videoUrl));
         setVideoSegments([]);
