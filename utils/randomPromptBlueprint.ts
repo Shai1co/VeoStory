@@ -955,6 +955,7 @@ export const buildFreeformGeminiInstruction = (recentCharacterNames?: string[]):
     avoidClause,
     'Use fresh, unexpected descriptions. Mix any genres you want. Surprise me with something I haven\'t seen before.',
     'Avoid: tea shops, cafes, coffee, passive scenes.',
+    'IMPORTANT: Return ONLY the final prompt. Do NOT include thinking process, reasoning, analysis, or meta-commentary. Just the prompt itself.'
   ].join(' ');
 };
 

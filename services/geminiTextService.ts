@@ -318,6 +318,42 @@ async function invokeGemini(
 
     // Clean up the text - remove quotes if wrapped
     let cleanedText = generatedText;
+    
+    // Handle models that include thinking/reasoning process (e.g., "SILENT THOUGHT:")
+    // Extract just the final prompt from the reasoning
+    if (cleanedText.includes('SILENT THOUGHT:') || cleanedText.includes('**(Self-Correction')) {
+      console.log('🔍 Detected thinking tokens in response, extracting final prompt...');
+      
+      // Look for the actual prompt after all the reasoning
+      // Pattern: Usually after the last set of asterisks or in the last paragraph
+      const lines = cleanedText.split('\n').filter(line => line.trim());
+      
+      // Find lines that look like actual prompts (not meta-commentary)
+      const promptLines = lines.filter(line => {
+        const trimmed = line.trim();
+        // Skip lines with meta-commentary markers
+        if (trimmed.includes('*') || 
+            trimmed.includes('SILENT THOUGHT') ||
+            trimmed.includes('Analyze Request') ||
+            trimmed.includes('Self-Correction') ||
+            trimmed.includes('Output Generation') ||
+            trimmed.includes('Check:') ||
+            trimmed.includes('Idea ') ||
+            trimmed.includes('Strategy:') ||
+            trimmed.match(/^\d+\./)) {
+          return false;
+        }
+        // Look for actual narrative content (has good length and narrative words)
+        return trimmed.length > 50 && !trimmed.includes('(') && !trimmed.includes('chars');
+      });
+      
+      if (promptLines.length > 0) {
+        // Use the last valid prompt line (usually the final refined version)
+        cleanedText = promptLines[promptLines.length - 1].trim();
+        console.log('✅ Extracted final prompt from thinking process:', cleanedText);
+      }
+    }
+    
     if (cleanedText.startsWith('"') && cleanedText.endsWith('"')) {
       cleanedText = cleanedText.slice(1, -1);
     }
