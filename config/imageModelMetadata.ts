@@ -20,12 +20,12 @@ export const IMAGE_MODEL_METADATA: Record<ImageModel, ImageModelMetadata> = {
   'gemini-imagen-3': {
     id: 'gemini-imagen-3',
     provider: 'gemini',
-    name: 'Imagen 4.0',
-    description: 'Google\'s Imagen 4.0 via Gemini API - photorealistic, high-quality images with SynthID watermark',
-    icon: '🍌',
+    name: 'Imagen 3 (Paid Tier)',
+    description: 'Google\'s Imagen 3 - requires paid Gemini API plan. Use Flux Schnell if you have free tier.',
+    icon: '💎',
     speed: '~5-10 seconds',
     quality: 'Excellent',
-    costLevel: 2,
+    costLevel: 3,
     requiresApiKey: 'GEMINI_API_KEY'
   }
 };

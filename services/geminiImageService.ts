@@ -5,11 +5,11 @@ import { getApiKey } from '../utils/apiKeys';
 // Gemini API configuration
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 // Models that support image generation with Gemini API key
+// Note: These models may require a paid API tier
 const GEMINI_IMAGE_MODELS = [
-  'imagen-4.0-fast-generate-001',  // Imagen 4.0 Fast - best balance
-  'imagen-4.0-generate-001',  // Imagen 4.0 Standard
-  'gemini-2.0-flash-preview-image-generation',  // Gemini 2.0 with image generation
-  'imagen-4.0-ultra-generate-001'  // Imagen 4.0 Ultra - highest quality (paid tier)
+  'imagen-3.0-generate-002',  // Imagen 3 - more widely available
+  'imagen-3.0-fast-generate-001',  // Imagen 3 Fast
+  'imagen-3.0-generate-001',  // Imagen 3 Standard
 ] as const;
 
 interface GeminiImageRequest {
@@ -43,8 +43,11 @@ interface GeminiImageResponse {
 
 /**
  * Generate an image from a text prompt using Gemini/Imagen models
- * Supports Imagen 4.0 and Gemini 2.0 with image generation
+ * Supports Imagen 3.0 models (may require paid API tier)
  * All generated images include SynthID watermark
+ * 
+ * Note: If you get 404 errors, your API key may be on the free tier.
+ * Use Flux Schnell (Replicate) as an alternative.
  */
 export async function generateGeminiImage(
   prompt: string,
@@ -163,6 +166,17 @@ export async function generateGeminiImage(
 
   // All models failed
   console.error('❌ [DEBUG] All Gemini/Imagen models failed');
+  
+  // Provide helpful error message based on the last error
+  const errorMessage = lastError?.message || '';
+  if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+    throw new Error(
+      'Imagen models are not available with your current Gemini API tier. ' +
+      'These models may require a paid API plan. ' +
+      'Please use Flux Schnell (Replicate) instead, or upgrade your Gemini API tier at https://aistudio.google.com/pricing'
+    );
+  }
+  
   throw lastError || new Error('Failed to generate image with all available Gemini/Imagen models');
 }
 
