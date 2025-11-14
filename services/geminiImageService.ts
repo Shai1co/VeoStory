@@ -92,10 +92,28 @@ export async function generateGeminiImage(
   };
 
   let lastError: Error | null = null;
-  console.log('🎨 [DEBUG] Available models to try:', GEMINI_IMAGE_MODELS);
+  
+  // First, try to discover available image models
+  let modelsToTry: string[] = [...GEMINI_IMAGE_MODELS];
+  try {
+    console.log('🔍 [DEBUG] Discovering available image models...');
+    const availableImageModels = await listAvailableModels();
+    if (availableImageModels.length > 0) {
+      console.log('✅ [DEBUG] Found available image models:', availableImageModels);
+      // Prefer discovered models, fallback to hardcoded list, remove duplicates
+      const combined = [...availableImageModels, ...GEMINI_IMAGE_MODELS];
+      modelsToTry = Array.from(new Set(combined));
+    } else {
+      console.log('⚠️ [DEBUG] No image models discovered, using fallback list');
+    }
+  } catch (error) {
+    console.warn('⚠️ [DEBUG] Could not discover models, using fallback list:', error);
+  }
+  
+  console.log('🎨 [DEBUG] Models to try (deduplicated):', modelsToTry);
 
   // Try models in order of preference
-  for (const modelName of GEMINI_IMAGE_MODELS) {
+  for (const modelName of modelsToTry) {
     try {
       console.log(`🎨 [DEBUG] Trying model: ${modelName}`);
 
@@ -171,9 +189,11 @@ export async function generateGeminiImage(
   const errorMessage = lastError?.message || '';
   if (errorMessage.includes('404') || errorMessage.includes('not found')) {
     throw new Error(
-      'Imagen models are not available with your current Gemini API tier. ' +
-      'These models may require a paid API plan. ' +
-      'Please use Flux Schnell (Replicate) instead, or upgrade your Gemini API tier at https://aistudio.google.com/pricing'
+      'No Imagen models are accessible with your API key. This could be due to:\n' +
+      '• Regional restrictions (some models only available in certain regions)\n' +
+      '• Early access requirements (some models need whitelisting)\n' +
+      '• API tier limitations\n\n' +
+      'Try using Flux Schnell (Replicate) instead, or check https://aistudio.google.com for model availability in your region.'
     );
   }
   
@@ -229,4 +249,47 @@ function buildImagePrompt(
  */
 export function isGeminiAvailable(): boolean {
   return !!getApiKey('GEMINI_API_KEY');
+}
+
+/**
+ * List all available models for the current API key
+ * Useful for debugging which image generation models are accessible
+ */
+export async function listAvailableModels(): Promise<string[]> {
+  const apiKey = getApiKey('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set');
+  }
+
+  try {
+    const response = await fetch(
+      `${GEMINI_API_BASE}/models?key=${apiKey}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to list models: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    const models = result.models || [];
+    
+    console.log('📋 Available Gemini models:', models.map((m: any) => m.name));
+    
+    // Return model names that support image generation
+    return models
+      .filter((m: any) => {
+        const name = m.name.replace('models/', '');
+        return name.includes('imagen') || name.includes('image');
+      })
+      .map((m: any) => m.name.replace('models/', ''));
+  } catch (error) {
+    console.error('Failed to list models:', error);
+    throw error;
+  }
 }
