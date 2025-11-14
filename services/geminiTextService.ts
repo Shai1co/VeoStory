@@ -41,7 +41,7 @@ const buildModelCandidates = (preferredModel?: LLMModel): string[] => {
 // API timeout configuration
 const API_TIMEOUT_MS = 10000; // 10 second timeout
 const HTTP_STATUS_NOT_FOUND = 404;
-const MAX_PROMPT_OUTPUT_TOKENS = 240;
+const MAX_PROMPT_OUTPUT_TOKENS = 500; // Increased to allow more creative freedom
 
 class GeminiModelNotFoundError extends Error {
   public readonly modelId: string;
