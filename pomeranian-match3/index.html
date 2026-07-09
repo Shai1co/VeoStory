@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1a0f0a" />
+    <title>Pom Crush — Match-3 Pomeranians</title>
+    <meta
+      name="description"
+      content="A Candy Crush–style match-3 game starring adorable Pomeranians. Play on web and mobile with WebGL."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">Pom</span>
+          <h1>Pom Crush</h1>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Score</span>
+            <span id="score" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Moves</span>
+            <span id="moves" class="stat-value">30</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Goal</span>
+            <span id="goal" class="stat-value">500</span>
+          </div>
+        </div>
+      </header>
+
+      <main id="stage">
+        <canvas id="game-canvas" aria-label="Pom Crush game board"></canvas>
+        <div id="toast" class="toast" hidden></div>
+      </main>
+
+      <footer id="controls">
+        <button id="btn-new" type="button">New Game</button>
+        <button id="btn-hint" type="button">Hint</button>
+        <p class="hint-text">Swap adjacent Pomeranians to make matches of 3+</p>
+      </footer>
+
+      <div id="overlay" class="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Level Complete!</h2>
+          <p id="overlay-message">You crushed those poms!</p>
+          <p id="overlay-score" class="overlay-score"></p>
+          <button id="btn-overlay" type="button">Play Again</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
