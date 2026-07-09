@@ -25,6 +25,21 @@ Eight chapters with rising difficulty (more colors, higher goals, fewer moves):
 - **L / T shapes** → bomb pom (clears a 3×3 blast)
 - Specials chain when hit by other blasts
 
+## Abilities (earn with fluff)
+
+Match poms to fill the **Fluff** meter and gain charges. Clear story levels to unlock more powers:
+
+| Ability | Unlock | Effect |
+|---------|--------|--------|
+| Puppy Shuffle | Lv 1 | Reshuffle the board |
+| Treat Bomb | Lv 2 | Place a bomb pom |
+| Zoomies | Lv 4 | Clear a row + column |
+| Super Bark | Lv 6 | Clear one whole color |
+
+## Sound
+
+Cute procedural dog SFX (yips, barks, woofs) via Web Audio — tap once to unlock audio on mobile. Mute with the speaker button.
+
 ## How to play
 
 - **Tap** a Pomeranian, then tap an adjacent one to swap — or **swipe**

@@ -1,5 +1,6 @@
 import './styles.css';
-import { Game } from './game/game';
+import { ABILITIES, Game, type AbilityHudButton } from './game/game';
+import type { AbilityId } from './game/abilities';
 
 function requireEl<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -12,6 +13,21 @@ function requireEl<T extends HTMLElement>(id: string): T {
 function boot(): void {
   const canvas = requireEl<HTMLCanvasElement>('game-canvas');
   const stage = requireEl<HTMLElement>('stage');
+
+  const abilityButtons: AbilityHudButton[] = ABILITIES.map((def) => {
+    const button = requireEl<HTMLButtonElement>(`ability-${def.id}`);
+    const fill = button.querySelector('.ability-charge-fill');
+    const cost = button.querySelector('.ability-cost');
+    if (!fill || !cost) {
+      throw new Error(`Ability button missing parts: ${def.id}`);
+    }
+    return {
+      id: def.id as AbilityId,
+      button,
+      fill: fill as HTMLElement,
+      cost: cost as HTMLElement,
+    };
+  });
 
   const game = new Game(canvas, stage, {
     score: requireEl('score'),
@@ -28,6 +44,10 @@ function boot(): void {
     storyBanner: requireEl('story-banner'),
     storyTitle: requireEl('story-title'),
     storyBlurb: requireEl('story-blurb'),
+    fluffFill: requireEl('fluff-fill'),
+    fluffCharges: requireEl('fluff-charges'),
+    abilityButtons,
+    muteBtn: requireEl<HTMLButtonElement>('btn-mute'),
   });
 
   requireEl<HTMLButtonElement>('btn-new').addEventListener('click', () => {

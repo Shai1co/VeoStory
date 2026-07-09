@@ -12,7 +12,7 @@
     <title>Luli Crush — Story Match-3</title>
     <meta
       name="description"
-      content="Luli Crush: a WebGL match-3 adventure starring Pomeranians. Story mode, specials, combos — play on phone or desktop."
+      content="Luli Crush: a WebGL match-3 adventure starring Pomeranians. Story mode, dog SFX, special abilities — play on phone or desktop."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -43,6 +43,7 @@
             <span class="stat-label">Goal</span>
             <span id="goal" class="stat-value">400</span>
           </div>
+          <button id="btn-mute" type="button" class="mute-btn" aria-label="Mute">🔊</button>
         </div>
       </header>
 
@@ -56,10 +57,45 @@
         <div id="toast" class="toast" hidden></div>
       </main>
 
+      <section id="abilities" class="abilities" aria-label="Special abilities">
+        <div class="fluff-meter" title="Fluff meter — fill it to earn ability charges">
+          <div class="fluff-meter-track">
+            <div id="fluff-fill" class="fluff-meter-fill"></div>
+          </div>
+          <span class="fluff-label">Fluff <strong id="fluff-charges">1</strong></span>
+        </div>
+        <div class="ability-row">
+          <button id="ability-shuffle" class="ability" type="button" data-ability="shuffle">
+            <span class="ability-icon" aria-hidden="true">🔄</span>
+            <span class="ability-name">Shuffle</span>
+            <span class="ability-cost">×1</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-treat_bomb" class="ability" type="button" data-ability="treat_bomb">
+            <span class="ability-icon" aria-hidden="true">💣</span>
+            <span class="ability-name">Bomb</span>
+            <span class="ability-cost">Lv2</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-zoomies" class="ability" type="button" data-ability="zoomies">
+            <span class="ability-icon" aria-hidden="true">💨</span>
+            <span class="ability-name">Zoomies</span>
+            <span class="ability-cost">Lv4</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-super_bark" class="ability" type="button" data-ability="super_bark">
+            <span class="ability-icon" aria-hidden="true">🔊</span>
+            <span class="ability-name">Bark</span>
+            <span class="ability-cost">Lv6</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+        </div>
+      </section>
+
       <footer id="controls">
         <button id="btn-new" type="button">Restart Story</button>
         <button id="btn-hint" type="button">Hint</button>
-        <p class="hint-text">Match 4 for stripes · 5 for rainbow · L / + shapes make bombs</p>
+        <p class="hint-text">Earn fluff → charges · Clear levels to unlock abilities</p>
       </footer>
 
       <div id="overlay" class="overlay" hidden>
