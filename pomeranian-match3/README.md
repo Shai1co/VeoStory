@@ -1,6 +1,6 @@
-# Pom Crush
+# Luli Crush
 
-A Candy Crush–style **match-3** game starring Pomeranians, rendered with **WebGL2**. Works on desktop and mobile browsers.
+A Candy Crush–style **match-3** adventure starring Pomeranians, rendered with **WebGL2**. Story mode, specials, combos — works on desktop and mobile.
 
 ## Play
 
@@ -12,20 +12,31 @@ npm run dev
 
 Open the URL Vite prints (default `http://localhost:5173`).
 
+## Story mode
+
+Eight chapters with rising difficulty (more colors, higher goals, fewer moves):
+
+1. Park Debut → 8. Luli Legend
+
+## Specials
+
+- **Match 4** → striped pom (clears a row or column)
+- **Match 5** → rainbow pom (swap with a color to clear all of that color)
+- **L / T shapes** → bomb pom (clears a 3×3 blast)
+- Specials chain when hit by other blasts
+
 ## How to play
 
-- **Tap** a Pomeranian, then tap an adjacent one to swap
-- Or **swipe** between adjacent tiles
-- Match **3 or more** of the same fluff to clear them
+- **Tap** a Pomeranian, then tap an adjacent one to swap — or **swipe**
 - Reach the **score goal** before you run out of **moves**
-- Use **Hint** if you’re stuck; the board reshuffles when no moves remain
+- Combos spawn floating text, bursts, and screen shake
 
 ## Tech
 
 - Vite + TypeScript
-- WebGL2 sprite batching with a procedural Pomeranian atlas
+- WebGL2 sprite batching with procedural Pomeranian atlas (8 looks + specials)
+- DOM/canvas effects layer for text + particles
 - Touch + mouse / pointer events
-- Responsive layout with safe-area insets for mobile
 
 ## Build
 

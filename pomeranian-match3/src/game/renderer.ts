@@ -1,4 +1,4 @@
-import { BOARD_COLS, BOARD_ROWS, EMPTY_CELL } from './constants';
+import { BOARD_COLS, BOARD_ROWS, EMPTY_CELL, cellToAtlasIndex, isSpecial } from './constants';
 import type { Cell, Position } from './board';
 import { createPomAtlas, getAtlasUv } from './sprites';
 
@@ -127,7 +127,7 @@ export class WebGLRenderer {
     this.gl = gl;
 
     this.program = createProgram(gl);
-    this.maxQuads = BOARD_COLS * BOARD_ROWS + 16;
+    this.maxQuads = BOARD_COLS * BOARD_ROWS + 48;
     this.vertexData = new Float32Array(this.maxQuads * VERTICES_PER_QUAD * FLOATS_PER_VERTEX);
 
     const vao = gl.createVertexArray();
@@ -380,6 +380,12 @@ export class WebGLRenderer {
           }
         }
 
+        // Specials idle pulse
+        if (isSpecial(type)) {
+          const pulse = 0.5 + 0.5 * Math.sin((nowMs / 280) * Math.PI + row + col);
+          scale *= 1 + 0.06 * pulse;
+        }
+
         const cx = originX + col * cellSize + cellSize / 2;
         const cy = originY + row * cellSize + cellSize / 2 + bounceY;
         const half = ((cellSize - inset * 2) / 2) * scale;
@@ -448,7 +454,7 @@ export class WebGLRenderer {
 
     const toNdcX = (x: number) => (x / cssW) * 2 - 1;
     const toNdcY = (y: number) => 1 - (y / cssH) * 2;
-    const uv = getAtlasUv(type, this.typeCount);
+    const uv = getAtlasUv(cellToAtlasIndex(type), this.typeCount);
 
     const nx0 = toNdcX(x0);
     const ny0 = toNdcY(y0);

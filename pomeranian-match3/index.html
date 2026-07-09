@@ -9,10 +9,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#1a0f0a" />
-    <title>Pom Crush — Match-3 Pomeranians</title>
+    <title>Luli Crush — Story Match-3</title>
     <meta
       name="description"
-      content="A Candy Crush–style match-3 game starring adorable Pomeranians. Play on web and mobile with WebGL."
+      content="Luli Crush: a WebGL match-3 adventure starring Pomeranians. Story mode, specials, combos — play on phone or desktop."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,8 +26,9 @@
     <div id="app">
       <header id="hud">
         <div class="brand">
-          <span class="brand-mark" aria-hidden="true">Pom</span>
-          <h1>Pom Crush</h1>
+          <span class="brand-mark" aria-hidden="true">Story</span>
+          <h1>Luli Crush</h1>
+          <p class="chapter-line"><span id="chapter">Chapter 1</span> · Lv <span id="level">1</span></p>
         </div>
         <div class="stats">
           <div class="stat">
@@ -36,32 +37,37 @@
           </div>
           <div class="stat">
             <span class="stat-label">Moves</span>
-            <span id="moves" class="stat-value">30</span>
+            <span id="moves" class="stat-value">28</span>
           </div>
           <div class="stat">
             <span class="stat-label">Goal</span>
-            <span id="goal" class="stat-value">500</span>
+            <span id="goal" class="stat-value">400</span>
           </div>
         </div>
       </header>
 
+      <div id="story-banner" class="story-banner" hidden>
+        <strong id="story-title">Chapter 1 — Park Debut</strong>
+        <span id="story-blurb">Match fluff. Crush with style.</span>
+      </div>
+
       <main id="stage">
-        <canvas id="game-canvas" aria-label="Pom Crush game board"></canvas>
+        <canvas id="game-canvas" aria-label="Luli Crush game board"></canvas>
         <div id="toast" class="toast" hidden></div>
       </main>
 
       <footer id="controls">
-        <button id="btn-new" type="button">New Game</button>
+        <button id="btn-new" type="button">Restart Story</button>
         <button id="btn-hint" type="button">Hint</button>
-        <p class="hint-text">Swap adjacent Pomeranians to make matches of 3+</p>
+        <p class="hint-text">Match 4 for stripes · 5 for rainbow · L / + shapes make bombs</p>
       </footer>
 
       <div id="overlay" class="overlay" hidden>
         <div class="overlay-card">
-          <h2 id="overlay-title">Level Complete!</h2>
+          <h2 id="overlay-title">Luli Crush</h2>
           <p id="overlay-message">You crushed those poms!</p>
           <p id="overlay-score" class="overlay-score"></p>
-          <button id="btn-overlay" type="button">Play Again</button>
+          <button id="btn-overlay" type="button">Start Story</button>
         </div>
       </div>
     </div>
