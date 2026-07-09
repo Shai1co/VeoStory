@@ -6,6 +6,17 @@
 
 Transform your ideas into interactive video adventures powered by cutting-edge AI models. This app uses Google's Veo for video generation and Gemini for story choices, creating a unique visual novel experience.
 
+## 🐕 Bonus: Luli Crush
+
+A WebGL match-3 story adventure starring Pomeranians lives in [`pomeranian-match3/`](./pomeranian-match3/).
+
+**Play online (after deploy):** [Luli Crush on GitHub Pages](https://Shai1co.github.io/VeoStory/luli-crush/)
+
+```bash
+cd pomeranian-match3 && npm install && npm run dev
+```
+
+
 ## 🌐 Live Demo
 
 **[Launch the App →](https://Shai1co.github.io/VeoStory/)**

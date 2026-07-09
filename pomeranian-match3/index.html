@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1a0f0a" />
+    <title>Luli Crush — Story Match-3</title>
+    <meta
+      name="description"
+      content="Luli Crush: a WebGL match-3 adventure starring Pomeranians. Story mode, dog SFX, special abilities — play on phone or desktop."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">Story</span>
+          <h1>Luli Crush</h1>
+          <p class="chapter-line"><span id="chapter">Chapter 1</span> · Lv <span id="level">1</span></p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Score</span>
+            <span id="score" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Moves</span>
+            <span id="moves" class="stat-value">28</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Goal</span>
+            <span id="goal" class="stat-value">400</span>
+          </div>
+          <button id="btn-mute" type="button" class="mute-btn" aria-label="Mute">🔊</button>
+        </div>
+      </header>
+
+      <div id="story-banner" class="story-banner" hidden>
+        <strong id="story-title">Chapter 1 — Park Debut</strong>
+        <span id="story-blurb">Match fluff. Crush with style.</span>
+      </div>
+
+      <main id="stage">
+        <canvas id="game-canvas" aria-label="Luli Crush game board"></canvas>
+        <div id="toast" class="toast" hidden></div>
+      </main>
+
+      <section id="abilities" class="abilities" aria-label="Special abilities">
+        <div class="fluff-meter" title="Fluff meter — fill it to earn ability charges">
+          <div class="fluff-meter-track">
+            <div id="fluff-fill" class="fluff-meter-fill"></div>
+          </div>
+          <span class="fluff-label">Fluff <strong id="fluff-charges">1</strong></span>
+        </div>
+        <div class="ability-row">
+          <button id="ability-shuffle" class="ability" type="button" data-ability="shuffle">
+            <span class="ability-icon" aria-hidden="true">🔄</span>
+            <span class="ability-name">Shuffle</span>
+            <span class="ability-cost">×1</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-treat_bomb" class="ability" type="button" data-ability="treat_bomb">
+            <span class="ability-icon" aria-hidden="true">💣</span>
+            <span class="ability-name">Bomb</span>
+            <span class="ability-cost">Lv2</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-zoomies" class="ability" type="button" data-ability="zoomies">
+            <span class="ability-icon" aria-hidden="true">💨</span>
+            <span class="ability-name">Zoomies</span>
+            <span class="ability-cost">Lv4</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+          <button id="ability-super_bark" class="ability" type="button" data-ability="super_bark">
+            <span class="ability-icon" aria-hidden="true">🔊</span>
+            <span class="ability-name">Bark</span>
+            <span class="ability-cost">Lv6</span>
+            <span class="ability-charge"><span class="ability-charge-fill"></span></span>
+          </button>
+        </div>
+      </section>
+
+      <footer id="controls">
+        <button id="btn-new" type="button">Restart Story</button>
+        <button id="btn-hint" type="button">Hint</button>
+        <p class="hint-text">Earn fluff → charges · Clear levels to unlock abilities</p>
+      </footer>
+
+      <div id="overlay" class="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Luli Crush</h2>
+          <p id="overlay-message">You crushed those poms!</p>
+          <p id="overlay-score" class="overlay-score"></p>
+          <button id="btn-overlay" type="button">Start Story</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

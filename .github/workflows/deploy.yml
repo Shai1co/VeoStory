@@ -28,14 +28,29 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install app dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build VeoStory app
         run: npm run build
         env:
-          # Set base path for GitHub Pages (will be /repo-name/)
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Install Luli Crush dependencies
+        working-directory: pomeranian-match3
+        run: npm ci
+
+      - name: Build Luli Crush
+        working-directory: pomeranian-match3
+        run: npm run build
+        env:
+          # Nested under the Pages site: /VeoStory/luli-crush/
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/luli-crush/
+
+      - name: Bundle Luli Crush into Pages dist
+        run: |
+          mkdir -p dist/luli-crush
+          cp -R pomeranian-match3/dist/. dist/luli-crush/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -52,4 +67,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
